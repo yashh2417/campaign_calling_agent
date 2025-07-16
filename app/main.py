@@ -36,10 +36,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+MONGODB_URL = os.getenv("MONGODB_URL")
+
+# if not MONGODB_URL:
+#     logger.error("❌ MONGODB_URL environment variable not set")
+#     raise ValueError("MONGODB_URL environment variable is required but not set")
+
+# logger.info(f"🔗 Connecting to MongoDB using: {MONGODB_URL}")  
+
 # MongoDB setup
 try:
-    client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-    db = client[os.getenv("MONGODB_DB_NAME", "bland_calls")]
+    client = AsyncIOMotorClient(os.getenv(MONGODB_URL))
+    db = client[os.getenv("MONGODB_DB_NAME")]
     calls_collection = db["calls"]
 except Exception as e:
     logger.error(f"MongoDB connection failed: {e}")
