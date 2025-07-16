@@ -1,47 +1,38 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import create_engine, Column, String, Text, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from motor.motor_asyncio import AsyncIOMotorClient
 import google.generativeai as genai
 from pinecone import Pinecone, ServerlessSpec
-import uuid
 import os
 import requests
 from dotenv import load_dotenv
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from fastapi import Request
 from pathlib import Path
-from fastapi.templating import Jinja2Templates
 
 # Load .env variables
 load_dotenv()
+
+# Configure FastAPI
+app = FastAPI()
+
+# MongoDB setup
+client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
+db = client.get_default_database()
+calls_collection = db["calls"]
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("models/embedding-001")
 
-# Configure FastAPI
-app = FastAPI()
-
 # Define base directory
 BASE_DIR = Path(__file__).resolve().parent
- 
+
 # Mount static and templates
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-
-# MySQL setup from environment
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("Missing DATABASE_URL in environment variables")
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
 # Pinecone setup
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
@@ -55,23 +46,12 @@ index_name = "bland-calls"
 if index_name not in pc.list_indexes().names():
     pc.create_index(
         name=index_name,
-        dimension=768,  # Gemini embedding dim is usually 768
+        dimension=768,
         metric="cosine",
         spec=ServerlessSpec(cloud="aws", region="us-east-1")
     )
 
 index = pc.Index(index_name)
-
-# SQLAlchemy model
-class Call(Base):
-    __tablename__ = "calls"
-    call_id = Column(String(255), primary_key=True, index=True)
-    summary = Column(Text)
-    variables = Column(JSON)
-    transcript_text = Column(Text)
-    analysis = Column(JSON)  # Add analysis column
-
-Base.metadata.create_all(bind=engine)
 
 # Request schemas
 class TranscriptItem(BaseModel):
@@ -91,7 +71,6 @@ class SendCallRequest(BaseModel):
 
 class BatchCallRequestItem(BaseModel):
     phone_number: str
-    # pathway_id: str
     variables: Optional[dict] = None
 
 class BatchCallRequest(BaseModel):
@@ -104,36 +83,24 @@ async def home(request: Request):
 
 @app.post("/bland/postcall")
 async def receive_postcall(payload: CallPayload):
-    db = SessionLocal()
-
-    # Prepare text and summary
     transcript_text = " ".join([f"{t.speaker}: {t.text}" for t in payload.transcript])
     summary = payload.summary
 
-    # if not summary:
-    #     response = genai.GenerativeModel("gemini-2.0-flash").generate_content(
-    #         f"Summarize the following transcript: {transcript_text}"
-    #     )
-    #     summary = response.text
-
-    # Fetch analysis from Bland
     bland_api_key = os.getenv("BLAND_API_KEY")
     headers = {"Authorization": bland_api_key}
     analysis_url = f"https://api.bland.ai/v1/calls/{payload.call_id}/analyze"
     analysis_response = requests.get(analysis_url, headers=headers)
     analysis_data = analysis_response.json() if analysis_response.ok else None
 
-    # Store in MySQL
-    call_record = Call(
-        call_id=payload.call_id,
-        summary=summary,
-        variables=payload.variables,
-        transcript_text=transcript_text,
-        analysis=analysis_data
-    )
-    db.add(call_record)
-    db.commit()
-    db.close()
+    # Store in MongoDB
+    call_record = {
+        "call_id": payload.call_id,
+        "summary": summary,
+        "variables": payload.variables,
+        "transcript_text": transcript_text,
+        "analysis": analysis_data
+    }
+    await calls_collection.insert_one(call_record)
 
     # Create embedding and upsert to Pinecone
     embed_response = model.embed_content(
@@ -149,7 +116,7 @@ async def receive_postcall(payload: CallPayload):
         })
     ])
 
-    return {"status": "success", "message": "Data stored in MySQL and Pinecone."}
+    return {"status": "success", "message": "Data stored in MongoDB and Pinecone."}
 
 @app.post("/bland/sendcall")
 async def send_call(request: SendCallRequest):
