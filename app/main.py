@@ -20,7 +20,6 @@ app = FastAPI()
 
 # MongoDB setup
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-# db = client.get_default_database()
 db = client[os.getenv("MONGODB_DB_NAME", "bland_calls")]
 calls_collection = db["calls"]
 
@@ -83,41 +82,52 @@ async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/bland/postcall")
-async def receive_postcall(payload: CallPayload):
-    transcript_text = " ".join([f"{t.speaker}: {t.text}" for t in payload.transcript])
-    summary = payload.summary
+async def receive_postcall(request: Request):
+    try:
+        data = await request.json()
+        print("📥 Incoming Webhook Payload:", data)
 
-    bland_api_key = os.getenv("BLAND_API_KEY")
-    headers = {"Authorization": bland_api_key}
-    analysis_url = f"https://api.bland.ai/v1/calls/{payload.call_id}/analyze"
-    analysis_response = requests.get(analysis_url, headers=headers)
-    analysis_data = analysis_response.json() if analysis_response.ok else None
+        call_id = data.get("call_id")
+        transcript = data.get("transcript", [])
+        summary = data.get("summary")
+        variables = data.get("variables", {})
 
-    # Store in MongoDB
-    call_record = {
-        "call_id": payload.call_id,
-        "summary": summary,
-        "variables": payload.variables,
-        "transcript_text": transcript_text,
-        "analysis": analysis_data
-    }
-    await calls_collection.insert_one(call_record)
+        transcript_text = " ".join([f"{t.get('speaker')}: {t.get('text')}" for t in transcript])
 
-    # Create embedding and upsert to Pinecone
-    embed_response = model.embed_content(
-        contents=[transcript_text],
-        task_type="RETRIEVAL_QUERY"
-    )
-    embedding = embed_response["embedding"]
+        # Fetch analysis
+        bland_api_key = os.getenv("BLAND_API_KEY")
+        headers = {"Authorization": bland_api_key}
+        analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
+        analysis_response = requests.get(analysis_url, headers=headers)
+        analysis_data = analysis_response.json() if analysis_response.ok else None
 
-    index.upsert([
-        (payload.call_id, embedding, {
-            "text": transcript_text,
-            **(payload.variables or {})
-        })
-    ])
+        # Store in MongoDB
+        call_record = {
+            "call_id": call_id,
+            "summary": summary,
+            "variables": variables,
+            "transcript_text": transcript_text,
+            "analysis": analysis_data
+        }
+        await calls_collection.insert_one(call_record)
 
-    return {"status": "success", "message": "Data stored in MongoDB and Pinecone."}
+        # Upsert to Pinecone
+        embed_response = model.embed_content(
+            contents=[transcript_text],
+            task_type="RETRIEVAL_QUERY"
+        )
+        embedding = embed_response["embedding"]
+
+        index.upsert([
+            (call_id, embedding, {
+                "text": transcript_text,
+                **variables
+            })
+        ])
+
+        return {"status": "success", "message": "Data stored in MongoDB and Pinecone."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/bland/sendcall")
 async def send_call(request: SendCallRequest):
