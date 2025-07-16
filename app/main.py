@@ -78,6 +78,9 @@ class SendCallRequest(BaseModel):
     phone_number: str
     pathway_id: str
     variables: Optional[dict] = None
+    task: Optional[str] = None
+    record: Optional[bool] = None
+    webhook: Optional[str] = None
 
 class BatchCallRequestItem(BaseModel):
     phone_number: str
@@ -157,6 +160,14 @@ async def send_call(request: SendCallRequest):
         "pathway_id": request.pathway_id,
         "variables": request.variables or {}
     }
+
+    if request.task:
+        payload["task"] = request.task
+    if request.record is not None:
+        payload["record"] = request.record
+    if request.webhook:
+        payload["webhook"] = request.webhook
+
 
     response = requests.post(url, json=payload, headers=headers)
 

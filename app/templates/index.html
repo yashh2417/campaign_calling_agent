@@ -15,8 +15,9 @@
         <section class="form-section">
             <h2>Send Single Call</h2>
             <form id="sendCallForm">
-                <input type="text" name="phone_number" placeholder="Phone Number" required>
-                <input type="text" name="pathway_id" placeholder="Pathway ID" required>
+                <input type="text" name="task" placeholder="Task">
+                <input type="text" name="webhook" placeholder="Webhook URL">
+                <label><input type="checkbox" name="record"> Record Call</label>
                 <textarea name="variables" placeholder='Variables (JSON)'></textarea>
                 <button type="submit">Send Call</button>
             </form>
@@ -25,7 +26,16 @@
         <section class="form-section">
             <h2>Send Batch Calls</h2>
             <form id="sendBatchForm">
-                <textarea name="batch" placeholder='[{"phone_number": "", "pathway_id": "", "variables": {}}]'
+                <input type="text" id="global_pathway_id" placeholder="Pathway ID" required>
+                <input type="text" id="global_task" placeholder="Task (optional)">
+                <input type="text" id="global_webhook" placeholder="Webhook URL (optional)">
+                <label>
+                    <input type="checkbox" id="global_record">
+                    Record Call
+                </label>
+
+                <textarea name="batch"
+                    placeholder='[{"phone_number": "+919818249821", "variables": {"customer_name": "Yash"}}]'
                     required></textarea>
                 <button type="submit">Send Batch</button>
             </form>
@@ -46,7 +56,10 @@
             const data = {
                 phone_number: form.phone_number.value,
                 pathway_id: form.pathway_id.value,
-                variables: form.variables.value ? JSON.parse(form.variables.value) : {}
+                variables: form.variables.value ? JSON.parse(form.variables.value) : {},
+                task: form.task.value || undefined,
+                webhook: form.webhook.value || undefined,
+                record: form.record.checked
             };
             const res = await fetch("/bland/sendcall", {
                 method: "POST",
@@ -60,9 +73,24 @@
         document.getElementById("sendBatchForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const form = e.target;
+
+            // Parse the batch calls JSON textarea
+            const calls = JSON.parse(form.batch.value);
+
+            // Get global-level fields
+            const pathway_id = document.getElementById("global_pathway_id").value;
+            const task = document.getElementById("global_task").value;
+            const record = document.getElementById("global_record").checked;
+            const webhook = document.getElementById("global_webhook").value;
+
             const data = {
-                calls: JSON.parse(form.batch.value)
+                pathway_id,
+                task,
+                record,
+                webhook,
+                calls
             };
+
             const res = await fetch("/bland/sendbatch", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
