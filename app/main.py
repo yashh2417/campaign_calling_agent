@@ -100,24 +100,41 @@ async def home(request: Request):
 @app.post("/bland/postcall")
 async def receive_postcall(request: Request):
     try:
+        # 1. Log the full incoming payload
         data = await request.json()
-        print("\ud83d\udcc5 Incoming Webhook Payload:", data)
+        print("📥 Incoming Webhook Payload:", data)
 
+        # 2. Extract and log each field
         call_id = data.get("call_id")
         transcript = data.get("transcripts", [])
         summary = data.get("summary")
         variables = data.get("variables", {})
 
-        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in transcript])
+        print("🆔 Call ID:", call_id)
+        print("📄 Summary:", summary)
+        print("📦 Variables:", variables)
+        print("🎙️ Transcript Raw:", transcript)
 
-        # Fetch analysis
+        # 3. Validate and build transcript text
+        if not isinstance(transcript, list) or not call_id:
+            print("❌ Invalid transcript or call_id")
+            return {"status": "error", "message": "Invalid data"}
+
+        transcript_text = " ".join([
+            f"{t.get('user', 'unknown')}: {t.get('text', '')}"
+            for t in transcript
+        ])
+        print("📝 Transcript Text:", transcript_text)
+
+        # 4. Fetch call analysis from Bland (optional)
         bland_api_key = os.getenv("BLAND_API_KEY")
         headers = {"Authorization": bland_api_key}
         analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
         analysis_response = requests.get(analysis_url, headers=headers)
         analysis_data = analysis_response.json() if analysis_response.ok else None
+        print("📊 Analysis:", analysis_data)
 
-        # Store in MongoDB
+        # 5. Insert into MongoDB
         call_record = {
             "call_id": call_id,
             "summary": summary,
@@ -125,16 +142,21 @@ async def receive_postcall(request: Request):
             "transcript_text": transcript_text,
             "analysis": analysis_data
         }
-        await calls_collection.insert_one(call_record)
 
-        # Upsert to Pinecone
+        try:
+            await calls_collection.insert_one(call_record)
+            print("✅ Inserted into MongoDB")
+        except Exception as e:
+            print("❌ Mongo insert error:", e)
+
+        # 6. Embed and upsert into Pinecone
         embed_response = model.embed_content(
             contents=[transcript_text],
             task_type="RETRIEVAL_QUERY"
         )
         embedding = embed_response.get("embedding")
-
         if not embedding:
+            print("❌ Embedding failed")
             return {"status": "error", "message": "Embedding not generated"}
 
         index.upsert([
@@ -143,9 +165,12 @@ async def receive_postcall(request: Request):
                 **variables
             })
         ])
+        print("✅ Upserted into Pinecone")
 
-        return {"status": "success", "message": "Data stored in MongoDB and Pinecone."}
+        return {"status": "success", "message": "Call processed successfully"}
+
     except Exception as e:
+        print("❌ Exception occurred:", str(e))
         return {"status": "error", "message": str(e)}
 
 @app.post("/bland/sendcall")
