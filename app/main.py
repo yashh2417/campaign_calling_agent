@@ -86,6 +86,9 @@ class BatchCallRequestItem(BaseModel):
 class BatchCallRequest(BaseModel):
     pathway_id: str
     calls: List[BatchCallRequestItem]
+    task: Optional[str] = None
+    record: Optional[bool] = None
+    webhook: Optional[str] = None
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -181,10 +184,18 @@ async def send_batch(request: BatchCallRequest):
         "Content-Type": "application/json"
     }
 
+    global_payload = {
+        "pathway_id": request.pathway_id
+    }
+    if request.task:
+        global_payload["task"] = request.task
+    if request.record is not None:
+        global_payload["record"] = request.record
+    if request.webhook:
+        global_payload["webhook"] = request.webhook
+
     payload = {
-        "global": {
-            "pathway_id": request.pathway_id
-        },
+        "global": global_payload,
         "call_objects": [
             {
                 "phone_number": call.phone_number,
