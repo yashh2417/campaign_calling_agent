@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bland AI Call Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
@@ -10,102 +11,316 @@
 
 <body>
     <div class="container">
-        <h1>Bland AI Call Dashboard</h1>
+        <div class="header">
+            <h1>Bland AI Call Dashboard</h1>
+            <p>Manage AI-powered phone calls with ease</p>
+        </div>
 
-        <section class="form-section">
-            <h2>Send Single Call</h2>
-            <form id="sendCallForm">
-                <input type="text" name="phone_number" placeholder="Phone Number" required>
-                <input type="text" name="pathway_id" placeholder="Pathway ID" required>
-                <input type="text" name="task" placeholder="Task (optional)">
-                <input type="text" name="webhook" placeholder="Webhook URL (optional)">
-                <label><input type="checkbox" name="record"> Record Call</label>
-                <textarea name="variables" placeholder='Variables (JSON)'></textarea>
-                <button type="submit">Send Call</button>
-            </form>
+        <div class="content">
+            <section class="form-section">
+                <h2>Send Single Call</h2>
+                <form id="sendCallForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="phone_number">Phone Number *</label>
+                            <input type="text" id="phone_number" name="phone_number" placeholder="+1234567890" required>
+                            <div class="help-text">Include country code (e.g., +1 for US)</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="pathway_id">Pathway ID *</label>
+                            <input type="text" id="pathway_id" name="pathway_id" placeholder="pathway-123" required>
+                            <div class="help-text">Your Bland AI pathway identifier</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="task">Task (Optional)</label>
+                            <input type="text" id="task" name="task" placeholder="Customer satisfaction survey">
+                            <div class="help-text">Custom task description for the call</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="webhook">Webhook URL (Optional)</label>
+                            <input type="url" id="webhook" name="webhook" placeholder="https://your-domain.com/webhook">
+                            <div class="help-text">URL to receive call completion notifications</div>
+                        </div>
+                    </div>
 
-        </section>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="record" name="record">
+                        <label for="record">Record Call</label>
+                    </div>
 
-        <section class="form-section">
-            <h2>Send Batch Calls</h2>
-            <form id="sendBatchForm">
-                <input type="text" id="global_pathway_id" placeholder="Pathway ID" required>
-                <input type="text" id="global_task" placeholder="Task (optional)">
-                <input type="text" id="global_webhook" placeholder="Webhook URL (optional)">
-                <label>
-                    <input type="checkbox" id="global_record">
-                    Record Call
-                </label>
+                    <div class="form-group">
+                        <label for="variables">Variables (JSON)</label>
+                        <textarea id="variables" name="variables"
+                            placeholder='{"customer_name": "John Doe", "project": "Downtown Plaza"}'></textarea>
+                        <div class="help-text">Custom variables to use in the call (valid JSON format)</div>
+                    </div>
 
-                <textarea name="batch"
-                    placeholder='[{"phone_number": "+919818249821", "variables": {"customer_name": "Yash"}}]'
-                    required></textarea>
-                <button type="submit">Send Batch</button>
-            </form>
-        </section>
+                    <button type="submit" class="btn">Send Call</button>
+                </form>
+            </section>
 
-        <section class="output">
-            <h2>Response</h2>
-            <pre id="responseBox"></pre>
-        </section>
+            <section class="form-section">
+                <h2>Send Batch Calls</h2>
+                <form id="sendBatchForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="global_pathway_id">Pathway ID *</label>
+                            <input type="text" id="global_pathway_id" placeholder="pathway-123" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="global_task">Task (Optional)</label>
+                            <input type="text" id="global_task" placeholder="Customer satisfaction survey">
+                        </div>
+                        <div class="form-group">
+                            <label for="global_webhook">Webhook URL (Optional)</label>
+                            <input type="url" id="global_webhook" placeholder="https://your-domain.com/webhook">
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="global_record">
+                        <label for="global_record">Record Calls</label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="batch">Batch Call Data (JSON Array) *</label>
+                        <textarea id="batch" name="batch" required
+                            placeholder='[{"phone_number": "+1234567890", "variables": {"customer_name": "John"}}, {"phone_number": "+0987654321", "variables": {"customer_name": "Jane"}}]'></textarea>
+                        <div class="help-text">Array of call objects with phone numbers and variables</div>
+                    </div>
+
+                    <button type="submit" class="btn">Send Batch</button>
+                </form>
+            </section>
+
+            <div class="loading" id="loadingIndicator">Processing request</div>
+
+            <section class="output">
+                <h2>Response</h2>
+                <pre id="responseBox">Ready to send calls...</pre>
+            </section>
+        </div>
     </div>
 
     <script>
         const responseBox = document.getElementById("responseBox");
+        const loadingIndicator = document.getElementById("loadingIndicator");
+
+        function showLoading() {
+            loadingIndicator.classList.add("show");
+        }
+
+        function hideLoading() {
+            loadingIndicator.classList.remove("show");
+        }
+
+        function showResponse(data, isError = false) {
+            responseBox.textContent = JSON.stringify(data, null, 2);
+            if (isError) {
+                responseBox.style.color = "#ff6b6b";
+            } else {
+                responseBox.style.color = "#e8e8e8";
+            }
+        }
+
+        function showError(message) {
+            showResponse({ error: message }, true);
+        }
+
+        function validateJSON(jsonString) {
+            if (!jsonString.trim()) return {};
+            try {
+                return JSON.parse(jsonString);
+            } catch (e) {
+                throw new Error(`Invalid JSON: ${e.message}`);
+            }
+        }
+
+        function validatePhoneNumber(phone) {
+            const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+            return phoneRegex.test(phone);
+        }
+
+        function disableForm(form, disabled) {
+            const elements = form.querySelectorAll('input, textarea, button');
+            elements.forEach(el => el.disabled = disabled);
+        }
 
         document.getElementById("sendCallForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const form = e.target;
 
-            const data = {
-                phone_number: form.phone_number.value,
-                pathway_id: form.pathway_id.value,
-                variables: form.variables.value ? JSON.parse(form.variables.value) : {},
-                task: form.task.value || undefined,
-                webhook: form.webhook.value || undefined,
-                record: form.record.checked || undefined
-            };
+            try {
+                showLoading();
+                disableForm(form, true);
 
-            const res = await fetch("/bland/sendcall", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
+                const phoneNumber = form.phone_number.value.trim();
+                const pathwayId = form.pathway_id.value.trim();
+                const variablesText = form.variables.value.trim();
 
-            const json = await res.json();
-            document.getElementById("responseBox").textContent = JSON.stringify(json, null, 2);
+                // Validation
+                if (!validatePhoneNumber(phoneNumber)) {
+                    throw new Error("Invalid phone number format. Please include country code (e.g., +1234567890)");
+                }
+
+                if (!pathwayId) {
+                    throw new Error("Pathway ID is required");
+                }
+
+                let variables = {};
+                if (variablesText) {
+                    variables = validateJSON(variablesText);
+                }
+
+                const data = {
+                    phone_number: phoneNumber,
+                    pathway_id: pathwayId,
+                    variables: variables
+                };
+
+                // Add optional fields only if they have values
+                const task = form.task.value.trim();
+                const webhook = form.webhook.value.trim();
+                const record = form.record.checked;
+
+                if (task) data.task = task;
+                if (webhook) data.webhook = webhook;
+                if (record) data.record = record;
+
+                const response = await fetch("/bland/sendcall", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.detail || `HTTP ${response.status}`);
+                }
+
+                showResponse(result);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+                disableForm(form, false);
+            }
         });
 
         document.getElementById("sendBatchForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const form = e.target;
 
-            // Parse the batch calls JSON textarea
-            const calls = JSON.parse(form.batch.value);
+            try {
+                showLoading();
+                disableForm(form, true);
 
-            // Get global-level fields
-            const pathway_id = document.getElementById("global_pathway_id").value;
-            const task = document.getElementById("global_task").value;
-            const record = document.getElementById("global_record").checked;
-            const webhook = document.getElementById("global_webhook").value;
+                const pathwayId = document.getElementById("global_pathway_id").value.trim();
+                const batchText = document.getElementById("batch").value.trim();
 
-            const data = {
-                pathway_id,
-                task,
-                record,
-                webhook,
-                calls
-            };
+                // Validation
+                if (!pathwayId) {
+                    throw new Error("Pathway ID is required");
+                }
 
-            const res = await fetch("/bland/sendbatch", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
+                if (!batchText) {
+                    throw new Error("Batch call data is required");
+                }
+
+                let calls;
+                try {
+                    calls = JSON.parse(batchText);
+                } catch (e) {
+                    throw new Error(`Invalid JSON in batch data: ${e.message}`);
+                }
+
+                if (!Array.isArray(calls)) {
+                    throw new Error("Batch data must be an array");
+                }
+
+                if (calls.length === 0) {
+                    throw new Error("At least one call is required");
+                }
+
+                if (calls.length > 100) {
+                    throw new Error("Maximum 100 calls per batch");
+                }
+
+                // Validate phone numbers in batch
+                for (let i = 0; i < calls.length; i++) {
+                    const call = calls[i];
+                    if (!call.phone_number) {
+                        throw new Error(`Call ${i + 1} is missing phone_number`);
+                    }
+                    if (!validatePhoneNumber(call.phone_number)) {
+                        throw new Error(`Call ${i + 1} has invalid phone number: ${call.phone_number}`);
+                    }
+                }
+
+                const data = {
+                    pathway_id: pathwayId,
+                    calls: calls
+                };
+
+                // Add optional global fields only if they have values
+                const task = document.getElementById("global_task").value.trim();
+                const webhook = document.getElementById("global_webhook").value.trim();
+                const record = document.getElementById("global_record").checked;
+
+                if (task) data.task = task;
+                if (webhook) data.webhook = webhook;
+                if (record) data.record = record;
+
+                const response = await fetch("/bland/sendbatch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.detail || `HTTP ${response.status}`);
+                }
+
+                showResponse(result);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+                disableForm(form, false);
+            }
+        });
+
+        // Add some helpful keyboard shortcuts
+        document.addEventListener('keydown', function (e) {
+            // Ctrl/Cmd + Enter to submit the focused form
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                const activeElement = document.activeElement;
+                const form = activeElement.closest('form');
+                if (form) {
+                    form.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+
+        // Format JSON in textareas on blur
+        document.querySelectorAll('textarea').forEach(textarea => {
+            textarea.addEventListener('blur', function () {
+                if (this.value.trim() && (this.id === 'variables' || this.id === 'batch')) {
+                    try {
+                        const parsed = JSON.parse(this.value);
+                        this.value = JSON.stringify(parsed, null, 2);
+                    } catch (e) {
+                        // Keep original value if JSON is invalid
+                    }
+                }
             });
-            const json = await res.json();
-            responseBox.textContent = JSON.stringify(json, null, 2);
         });
     </script>
 </body>
 
-</html>
+</html
