@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import google.generativeai as genai
 from pinecone import Pinecone, ServerlessSpec
@@ -17,6 +18,15 @@ load_dotenv()
 
 # Configure FastAPI
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # MongoDB setup
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
@@ -85,14 +95,14 @@ async def home(request: Request):
 async def receive_postcall(request: Request):
     try:
         data = await request.json()
-        print("📥 Incoming Webhook Payload:", data)
+        print("\ud83d\udcc5 Incoming Webhook Payload:", data)
 
         call_id = data.get("call_id")
-        transcript = data.get("transcript", [])
+        transcript = data.get("transcripts", [])
         summary = data.get("summary")
         variables = data.get("variables", {})
 
-        transcript_text = " ".join([f"{t.get('speaker')}: {t.get('text')}" for t in transcript])
+        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in transcript])
 
         # Fetch analysis
         bland_api_key = os.getenv("BLAND_API_KEY")
@@ -116,7 +126,10 @@ async def receive_postcall(request: Request):
             contents=[transcript_text],
             task_type="RETRIEVAL_QUERY"
         )
-        embedding = embed_response["embedding"]
+        embedding = embed_response.get("embedding")
+
+        if not embedding:
+            return {"status": "error", "message": "Embedding not generated"}
 
         index.upsert([
             (call_id, embedding, {
