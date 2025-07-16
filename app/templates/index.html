@@ -15,12 +15,15 @@
         <section class="form-section">
             <h2>Send Single Call</h2>
             <form id="sendCallForm">
-                <input type="text" name="task" placeholder="Task">
-                <input type="text" name="webhook" placeholder="Webhook URL">
+                <input type="text" name="phone_number" placeholder="Phone Number" required>
+                <input type="text" name="pathway_id" placeholder="Pathway ID" required>
+                <input type="text" name="task" placeholder="Task (optional)">
+                <input type="text" name="webhook" placeholder="Webhook URL (optional)">
                 <label><input type="checkbox" name="record"> Record Call</label>
                 <textarea name="variables" placeholder='Variables (JSON)'></textarea>
                 <button type="submit">Send Call</button>
             </form>
+
         </section>
 
         <section class="form-section">
@@ -53,21 +56,24 @@
         document.getElementById("sendCallForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const form = e.target;
+
             const data = {
                 phone_number: form.phone_number.value,
                 pathway_id: form.pathway_id.value,
                 variables: form.variables.value ? JSON.parse(form.variables.value) : {},
                 task: form.task.value || undefined,
                 webhook: form.webhook.value || undefined,
-                record: form.record.checked
+                record: form.record.checked || undefined
             };
+
             const res = await fetch("/bland/sendcall", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
+
             const json = await res.json();
-            responseBox.textContent = JSON.stringify(json, null, 2);
+            document.getElementById("responseBox").textContent = JSON.stringify(json, null, 2);
         });
 
         document.getElementById("sendBatchForm").addEventListener("submit", async (e) => {
