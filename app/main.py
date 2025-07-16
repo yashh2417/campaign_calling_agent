@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi import Request
+from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 # Load .env variables
@@ -26,8 +27,12 @@ model = genai.GenerativeModel("models/embedding-001")
 # Configure FastAPI
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+# Define base directory
+BASE_DIR = Path(__file__).resolve().parent
+ 
+# Mount static and templates
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # MySQL setup from environment
 DATABASE_URL = os.getenv("DATABASE_URL")

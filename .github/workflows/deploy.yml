@@ -38,5 +38,5 @@ jobs:
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
-        railway up --service bland_calls --dockerImage ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest --no-confirm
+        railway up --service bland_calls -- --dockerImage ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest --no-confirm
 
