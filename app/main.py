@@ -20,7 +20,8 @@ app = FastAPI()
 
 # MongoDB setup
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-db = client.get_default_database()
+# db = client.get_default_database()
+db = client[os.getenv("MONGODB_DB_NAME", "bland_calls")]
 calls_collection = db["calls"]
 
 # Configure Gemini
