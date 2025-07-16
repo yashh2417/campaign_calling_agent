@@ -35,7 +35,7 @@ calls_collection = db["calls"]
 
 # Configure Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("models/embedding-001")
+model = genai.EmbeddingModel("models/embedding-001")
 
 # Define base directory
 BASE_DIR = Path(__file__).resolve().parent
@@ -130,8 +130,20 @@ async def receive_postcall(request: Request):
         bland_api_key = os.getenv("BLAND_API_KEY")
         headers = {"Authorization": bland_api_key}
         analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
-        analysis_response = requests.get(analysis_url, headers=headers)
+        analysis_payload = {
+            "goal": "Understand customer's interest in real estate projects and satisfaction level",
+            "questions": [
+                ["Who answered the call?", "human or voicemail"],
+                ["Positive feedback about the product", "string"],
+                ["Negative feedback about the product", "string"],
+                ["Customer confirmed they were satisfied", "boolean"]
+            ]
+        }
+
+        analysis_response = requests.post(analysis_url, json=analysis_payload, headers=headers)
+
         analysis_data = analysis_response.json() if analysis_response.ok else None
+
         print("📊 Analysis:", analysis_data)
 
         # 5. Insert into MongoDB
