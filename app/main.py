@@ -46,7 +46,7 @@ MONGODB_URL = os.getenv("MONGODB_URL")
 
 # MongoDB setup
 try:
-    client = AsyncIOMotorClient(os.getenv(MONGODB_URL))
+    client = AsyncIOMotorClient(MONGODB_URL)
     db = client[os.getenv("MONGODB_DB_NAME")]
     calls_collection = db["calls"]
 except Exception as e:
