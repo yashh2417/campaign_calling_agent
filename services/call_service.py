@@ -17,7 +17,7 @@ async def schedule_follow_up_call(phone_number: str, pathway_id: str, original_c
     Waits for a specified duration and then places a follow-up call.
     This function is designed to be run in the background.
     """
-    follow_up_delay_seconds = 3600  # 1 hour
+    follow_up_delay_seconds = 300  # 1 hour
     logger.info(f"⏰ Scheduling follow-up call to {phone_number} in {follow_up_delay_seconds / 60} minutes for original call {original_call_id}.")
     
     # In a production environment, a more robust task queue like Celery or ARQ
@@ -60,7 +60,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         # --- Data Enrichment ---
         
         # 1. Process Transcript from the webhook payload
-        # transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
+        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
 
         # 2. Analyze Emotion via Bland AI
         emotion = "unknown"
@@ -95,7 +95,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
             to_phone=data.get("to"),
             from_phone=data.get("from"),
             summary=data.get("summary"),
-            call_transcript=data.get("concatenated_transcript"), 
+            call_transcript=transcript_text, 
             completed=data.get("completed"),
             emotion=emotion,
             embedding=embedding_vector
