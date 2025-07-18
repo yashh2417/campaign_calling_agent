@@ -60,7 +60,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         call_id = data.get("call_id")
         if not call_id: raise HTTPException(status_code=400, detail="Missing call_id")
 
-        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
+        transcript_text = data.get("transcript", [])
 
         emotion, follow_up_time_str = "unknown", None
         if settings.BLAND_API_KEY:
