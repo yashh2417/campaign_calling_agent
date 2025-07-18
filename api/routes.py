@@ -19,18 +19,20 @@ def get_db():
     finally:
         db.close()
 
-# --- UPDATED: Webhook now uses BackgroundTasks ---
+# The webhook endpoint now correctly accepts and passes 
 @router.post("/bland/postcall")
 async def receive_postcall(
     request: Request, 
-    background_tasks: BackgroundTasks, # FastAPI injects this
+    background_tasks: BackgroundTasks, # FastAPI will automatically provide this
     db: Session = Depends(get_db)
 ):
     """
     Webhook endpoint to receive data from Bland AI after a call is completed.
-    It now supports scheduling background tasks for follow-ups.
+    It now correctly supports scheduling background tasks for follow-ups.
     """
+    # The 'background_tasks' object is now correctly passed to the service layer.
     return await get_postcall_data(request, db, background_tasks)
+
 
 @router.post("/bland/sendcall")
 async def send_call(request: SendCallRequest):

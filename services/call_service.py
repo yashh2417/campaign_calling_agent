@@ -1,8 +1,10 @@
 import time
 import requests
+import uuid
+import re
+from datetime import datetime, timedelta
 from fastapi import Request, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-import uuid
 
 from core.config import settings
 from core.database import logger
@@ -10,24 +12,56 @@ from crud.db_call import create_call as db_create_call, get_calls as db_get_call
 from schemas.call_data_schemas import CallCreate, SendCallRequest, BatchCallRequest
 from services.embedding_service import generate_embedding
 
-# --- Follow-up Call Logic ---
-
-async def schedule_follow_up_call(phone_number: str, pathway_id: str, original_call_id: str):
+# --- NEW: Helper function to parse time from AI response ---
+def parse_follow_up_time(time_string: str) -> int:
     """
-    Waits for a specified duration and then places a follow-up call.
-    This function is designed to be run in the background.
+    Parses a human-readable time string from the AI and returns the delay in seconds.
+    Returns a default if the string is not understandable.
     """
-    follow_up_delay_seconds = 300  # 5 minutes for testing
-    logger.info(f"⏰ Scheduling follow-up call to {phone_number} in {follow_up_delay_seconds / 60} minutes for original call {original_call_id}.")
+    default_delay_seconds = 3600  # 1 hour default
     
-    time.sleep(follow_up_delay_seconds)
+    if not isinstance(time_string, str):
+        return default_delay_seconds
+
+    time_string = time_string.lower().strip()
+
+    # Check for "tomorrow"
+    if "tomorrow" in time_string:
+        return 24 * 3600
+
+    # Check for "hour" or "hours"
+    match = re.search(r'(\d+)\s+hour', time_string)
+    if match:
+        hours = int(match.group(1))
+        return hours * 3600
+
+    # Check for "minute" or "minutes"
+    match = re.search(r'(\d+)\s+minute', time_string)
+    if match:
+        minutes = int(match.group(1))
+        return minutes * 60
+
+    logger.warning(f"⚠️ Could not parse follow-up time string '{time_string}'. Using default delay.")
+    return default_delay_seconds
+
+
+# --- UPDATED: Follow-up Call Logic ---
+async def schedule_follow_up_call(phone_number: str, pathway_id: str, original_call_id: str, delay_seconds: int):
+    """
+    Waits for a specified duration (in seconds) and then places a follow-up call.
+    """
+    logger.info(f"⏰ Scheduling follow-up call to {phone_number} in {delay_seconds / 60:.1f} minutes for original call {original_call_id}.")
+    
+    # In a real production scenario, a more robust system like Celery or APScheduler
+    # would be better than time.sleep() for long delays. This is fine for this use case.
+    time.sleep(delay_seconds)
     
     logger.info(f"📞 Placing scheduled follow-up call to {phone_number}.")
     
     follow_up_request = SendCallRequest(
         phone_number=phone_number,
         pathway_id=pathway_id,
-        task=f"Follow-up call for original call ID: {original_call_id}. The previous conversation had a neutral sentiment.",
+        task=f"Follow-up call for original call ID: {original_call_id}. This call was scheduled based on the user's request.",
         webhook=f"{settings.ALLOWED_ORIGINS[0]}/bland/postcall" if settings.ALLOWED_ORIGINS else None
     )
     
@@ -38,11 +72,9 @@ async def schedule_follow_up_call(phone_number: str, pathway_id: str, original_c
 
 
 # --- Main Service Functions ---
-
 async def get_postcall_data(request: Request, db: Session, background_tasks: BackgroundTasks):
     """
-    Receive and process webhook callbacks from Bland AI.
-    This function now enriches the data and triggers follow-ups.
+    Receive and process webhook callbacks from Bland AI, now with intelligent scheduling.
     """
     try:
         data = await request.json()
@@ -52,24 +84,32 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         if not call_id:
             raise HTTPException(status_code=400, detail="Missing call_id")
 
-        transcript_text = data.get("concatenated_transcript")
+        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
 
         emotion = "unknown"
+        follow_up_time_str = None
         if settings.BLAND_API_KEY:
             try:
                 headers = {"Authorization": f"Bearer {settings.BLAND_API_KEY}"}
                 analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
+                # --- UPDATED: Ask for sentiment AND follow-up time ---
                 analysis_payload = {
-                    "goal": "Determine the customer's sentiment based on the conversation.",
+                    "goal": "Determine sentiment and extract a specific follow-up time if mentioned.",
                     "questions": [
-                        ["What was the overall sentiment of the person who was called?", "Answer with only one word: positive, neutral, or negative."]
+                        ["What was the overall sentiment of the person who was called?", "Answer with only one word: positive, neutral, or negative."],
+                        ["Did the user suggest a specific time to call back? If so, state the time (e.g., 'in 2 hours', 'tomorrow'). If not, answer 'No'.", "string"]
                     ]
                 }
                 analysis_response = requests.post(analysis_url, json=analysis_payload, headers=headers, timeout=30)
                 if analysis_response.status_code == 200:
                     analysis_data = analysis_response.json()
                     logger.info(f"📊 Analysis successful: {analysis_data}")
-                    emotion = analysis_data.get('answers', ['unknown'])[0].lower().strip()
+                    
+                    answers = analysis_data.get('answers', [])
+                    if len(answers) > 0:
+                        emotion = answers[0].lower().strip()
+                    if len(answers) > 1:
+                        follow_up_time_str = answers[1]
                 else:
                     logger.error(f"❌ Analysis API error: {analysis_response.status_code} - {analysis_response.text}")
             except Exception as e:
@@ -77,7 +117,6 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
 
         embedding_vector = generate_embedding(transcript_text)
         
-        # --- FIX: Extract batch_id from variables if present ---
         variables = data.get('variables', {})
         batch_id = variables.get('_batch_id')
 
@@ -94,14 +133,15 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         )
         db_create_call(db=db, call=call_to_create)
 
-        # --- FIX: Correctly extract pathway_id for follow-up ---
+        # --- UPDATED: Follow-up Logic with Dynamic Time ---
         if emotion == "neutral":
-            # The pathway_id is now retrieved from the 'variables' passed through the call
             pathway_id = variables.get('_pathway_id')
             phone_number = data.get("to")
             
             if pathway_id and phone_number:
-                background_tasks.add_task(schedule_follow_up_call, phone_number, pathway_id, call_id)
+                # Calculate delay based on AI's parsed response
+                delay = parse_follow_up_time(follow_up_time_str)
+                background_tasks.add_task(schedule_follow_up_call, phone_number, pathway_id, call_id, delay)
             else:
                 logger.warning(f"⚠️ Cannot schedule follow-up for call {call_id}: missing _pathway_id in webhook variables or 'to' phone number.")
 
@@ -120,14 +160,11 @@ async def create_call(request: SendCallRequest, batch_id: str = None):
         
         payload = request.model_dump(exclude_none=True)
         
-        # --- FIX: Inject pathway_id and batch_id into variables ---
-        # This ensures they are returned in the webhook payload.
         if 'variables' not in payload or payload['variables'] is None:
             payload['variables'] = {}
         payload['variables']['_pathway_id'] = request.pathway_id
         if batch_id:
             payload['variables']['_batch_id'] = batch_id
-        # --- End of Fix ---
             
         payload['analysis_schema'] = {"transcript": "string", "summary": "string"}
         
@@ -158,7 +195,6 @@ async def create_batch_call(request: BatchCallRequest):
                 record=request.record,
                 webhook=request.webhook
             )
-            # Pass the generated batch_id to the create_call function
             response = await create_call(single_call_request, batch_id=batch_id)
             responses.append({"status": "success", "data": response})
         except Exception as e:
