@@ -60,7 +60,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         # --- Data Enrichment ---
         
         # 1. Process Transcript from the webhook payload
-        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
+        transcript_text = data.get("concatenated_transcript")
 
         # 2. Analyze Emotion via Bland AI
         emotion = "unknown"
@@ -80,7 +80,8 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
                     analysis_data = analysis_response.json()
                     logger.info(f"📊 Analysis successful: {analysis_data}")
                     # This robustly extracts the single-word response.
-                    emotion = analysis_data.get('data', [{}])[0].get('response', 'unknown').lower().strip()
+                    emotion = analysis_data.get('answers', ['unknown'])[0].lower().strip()
+                    
                 else:
                     logger.error(f"❌ Analysis API error: {analysis_response.status_code} - {analysis_response.text}")
             except Exception as e:
@@ -92,6 +93,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         # --- Database Interaction ---
         call_to_create = CallCreate(
             call_id=call_id,
+            batch_id=data.get('batch_id'),
             to_phone=data.get("to"),
             from_phone=data.get("from"),
             summary=data.get("summary"),

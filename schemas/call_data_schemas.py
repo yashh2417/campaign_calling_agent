@@ -24,26 +24,13 @@ class SendCallRequest(BaseModel):
 
     @field_validator('phone_number')
     def validate_phone_number(cls, v):
-        # Basic phone number validation
         if not re.match(r'^\+?[1-9]\d{1,14}$', v):
             raise ValueError('Invalid phone number format')
         return v
-
-    @field_validator('pathway_id')
-    def validate_pathway_id(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise ValueError('Pathway ID cannot be empty')
-        return v.strip()
 
 class BatchCallRequestItem(BaseModel):
     phone_number: str
     variables: Optional[Dict[str, Any]] = None
-
-    @field_validator('phone_number')
-    def validate_phone_number(cls, v):
-        if not re.match(r'^\+?[1-9]\d{1,14}$', v):
-            raise ValueError('Invalid phone number format')
-        return v
 
 class BatchCallRequest(BaseModel):
     pathway_id: str
@@ -52,23 +39,7 @@ class BatchCallRequest(BaseModel):
     record: Optional[bool] = None
     webhook: Optional[str] = None
 
-    @field_validator('pathway_id')
-    def validate_pathway_id(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise ValueError('Pathway ID cannot be empty')
-        return v.strip()
-
-    @field_validator('calls')
-    def validate_calls(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('At least one call is required')
-        if len(v) > 100:  # Reasonable limit
-            raise ValueError('Too many calls in batch (max 100)')
-        return v
-
-
-
-
+# Database schemas
 class CallBase(BaseModel):
     emotion: Optional[str]
     from_phone: Optional[str]
@@ -79,10 +50,15 @@ class CallBase(BaseModel):
 
 class CallCreate(CallBase):
     call_id: str
-    embedding: Optional[list[float]]  # Convert to numpy if needed
+    
+    # --- NEW: Added batch_id ---
+    batch_id: Optional[str] = None
+    
+    embedding: Optional[list[float]]
 
 class CallRead(CallBase):
     call_id: str
+    batch_id: Optional[str] = None
     created_at: Optional[datetime]
 
     class Config:

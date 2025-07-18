@@ -8,6 +8,7 @@ class Call(Base):
     __table_args__ = {"schema": "public"}
 
     call_id = Column(String(255), primary_key=True, nullable=False)
+    batch_id = Column(String(255), nullable=True, index=True)
     emotion = Column(String(20), nullable=True)
     from_phone = Column(String(50), nullable=True)
     to_phone = Column(String(50), nullable=True)
