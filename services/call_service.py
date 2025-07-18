@@ -51,7 +51,7 @@ def parse_follow_up_time(time_string: str) -> int:
 
 async def get_postcall_data(request: Request, db: Session, background_tasks: BackgroundTasks):
     """
-    Receive and process webhook callbacks from Bland AI, now with intelligent scheduling.
+    Receive and process webhook callbacks from Bland AI, using metadata for custom IDs.
     """
     try:
         data = await request.json()
@@ -60,11 +60,12 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         call_id = data.get("call_id")
         if not call_id: raise HTTPException(status_code=400, detail="Missing call_id")
 
-        transcript_text = data.get("concatenated_transcript", [])
+        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
 
         emotion, follow_up_time_str = "unknown", None
         if settings.BLAND_API_KEY:
             try:
+                # (Analysis logic remains the same)
                 headers = {"Authorization": f"Bearer {settings.BLAND_API_KEY}"}
                 analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
                 analysis_payload = {
@@ -88,10 +89,10 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
 
         embedding_vector = generate_embedding(transcript_text)
         
-        # --- FIX: Extract renamed custom variables ---
-        variables = data.get('variables', {})
-        batch_id = variables.get('custom_batch_id')
-        pathway_id_for_followup = variables.get('custom_pathway_id')
+        # --- FIX: Extract custom IDs from the 'metadata' field ---
+        metadata = data.get('metadata', {})
+        batch_id = metadata.get('batch_id')
+        pathway_id_for_followup = metadata.get('pathway_id')
         # --- END OF FIX ---
 
         call_to_create = CallCreate(
@@ -107,7 +108,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
                 delay = parse_follow_up_time(follow_up_time_str)
                 background_tasks.add_task(schedule_follow_up_call, phone_number, pathway_id_for_followup, call_id, delay)
             else:
-                logger.warning(f"⚠️ Cannot schedule follow-up for call {call_id}: missing 'custom_pathway_id' in webhook variables or 'to' phone number.")
+                logger.warning(f"⚠️ Cannot schedule follow-up for call {call_id}: missing 'pathway_id' in webhook metadata or 'to' phone number.")
 
         return {"status": "success", "message": "Call processed", "call_id": call_id}
 
@@ -116,21 +117,20 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
         raise HTTPException(status_code=500, detail="Internal server error")
 
 async def create_call(request: SendCallRequest, batch_id: str = None):
-    """Send a single AI phone call. This function correctly injects the IDs."""
+    """Send a single AI phone call. This function correctly injects IDs into metadata."""
     try:
         url = "https://api.bland.ai/v1/calls"
         headers = {"Authorization": f"Bearer {settings.BLAND_API_KEY}", "Content-Type": "application/json"}
         
-        payload = request.model_dump(exclude_none=True)
-        
-        # --- FIX: Inject renamed custom variables ---
-        if 'variables' not in payload or payload['variables'] is None:
-            payload['variables'] = {}
-        payload['variables']['custom_pathway_id'] = request.pathway_id
+        # --- FIX: Inject custom IDs into the 'metadata' field ---
+        request.metadata = {
+            "pathway_id": request.pathway_id
+        }
         if batch_id:
-            payload['variables']['custom_batch_id'] = batch_id
+            request.metadata["batch_id"] = batch_id
         # --- END OF FIX ---
             
+        payload = request.model_dump(exclude_none=True)
         payload['analysis_schema'] = {"transcript": "string", "summary": "string"}
         
         logger.info(f"📞 Sending call to {request.phone_number} with payload: {payload}")

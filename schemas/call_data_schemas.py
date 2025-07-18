@@ -3,16 +3,7 @@ from typing import List, Optional, Dict, Any
 import re
 from datetime import datetime
 
-# Request schemas
-class TranscriptItem(BaseModel):
-    speaker: str
-    text: str
-
-class CallPayload(BaseModel):
-    call_id: str
-    transcript: List[TranscriptItem]
-    summary: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
+# --- Request Schemas ---
 
 class SendCallRequest(BaseModel):
     phone_number: str
@@ -21,6 +12,9 @@ class SendCallRequest(BaseModel):
     task: Optional[str] = None
     record: Optional[bool] = None
     webhook: Optional[str] = None
+    
+    # --- NEW: Add metadata field for passthrough data ---
+    metadata: Optional[Dict[str, Any]] = None
 
     @field_validator('phone_number')
     def validate_phone_number(cls, v):
@@ -39,7 +33,8 @@ class BatchCallRequest(BaseModel):
     record: Optional[bool] = None
     webhook: Optional[str] = None
 
-# Database schemas
+# --- Database Schemas ---
+
 class CallBase(BaseModel):
     emotion: Optional[str]
     from_phone: Optional[str]
@@ -50,10 +45,7 @@ class CallBase(BaseModel):
 
 class CallCreate(CallBase):
     call_id: str
-    
-    # --- NEW: Added batch_id ---
     batch_id: Optional[str] = None
-    
     embedding: Optional[list[float]]
 
 class CallRead(CallBase):
