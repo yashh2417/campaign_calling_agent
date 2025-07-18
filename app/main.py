@@ -1,13 +1,25 @@
-from fastapi import FastAPI, Request
+import logging
 import sys
 import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from core.database import create_db_and_tables
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+
+# --- NEW: Logging Configuration ---
+# Configure the root logger to output messages to the console.
+# This will capture logs from all modules in your application.
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum level of logs to capture (INFO, WARNING, ERROR, CRITICAL)
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    stream=sys.stdout,
+)
+# --- End of Logging Configuration ---
+
+# Add the project root to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from core.database import create_db_and_tables
 from core.config import settings
 from api.routes import router as api_router
 from core.templates import templates
@@ -18,7 +30,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -28,23 +40,24 @@ app.add_middleware(
 )
 
 # Static files & templates
+# Make sure you have a directory structure like `app/static` and `app/templates`
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# DB connection on startup
+# Database connection on startup
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
 
-# Homepage 
+# Homepage Route
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Serve the dashboard homepage"""
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Routers for your API
+# Include API routes from api/routes.py
 app.include_router(api_router)
 
-# Run if main
+# This block is for running the app locally with uvicorn
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

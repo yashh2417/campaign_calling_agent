@@ -7,7 +7,7 @@ from core.config import settings
 from core.database import logger
 from crud.db_call import create_call as db_create_call, get_calls as db_get_calls
 from schemas.call_data_schemas import CallCreate, SendCallRequest, BatchCallRequest
-# This now correctly points to your Gemini embedding service
+# This correctly points to your Gemini embedding service
 from services.embedding_service import generate_embedding
 
 # --- Follow-up Call Logic ---
@@ -59,8 +59,8 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
 
         # --- Data Enrichment ---
         
-        # 1. Process Transcript
-        transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
+        # 1. Process Transcript from the webhook payload
+        # transcript_text = " ".join([f"{t.get('user', 'unknown')}: {t.get('text', '')}" for t in data.get("transcript", [])])
 
         # 2. Analyze Emotion via Bland AI
         emotion = "unknown"
@@ -68,25 +68,25 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
             try:
                 headers = {"Authorization": f"Bearer {settings.BLAND_API_KEY}"}
                 analysis_url = f"https://api.bland.ai/v1/calls/{call_id}/analyze"
+                # This payload correctly asks for one of the three desired emotions.
                 analysis_payload = {
-                    "goal": "Determine the customer's sentiment and if a follow-up is needed.",
+                    "goal": "Determine the customer's sentiment based on the conversation.",
                     "questions": [
-                        ["What was the overall sentiment of the person who was called?", "Answer with only one word: positive, neutral, or negative."],
-                        ["Does the person require a follow-up call based on the conversation?", "boolean"]
+                        ["What was the overall sentiment of the person who was called?", "Answer with only one word: positive, neutral, or negative."]
                     ]
                 }
                 analysis_response = requests.post(analysis_url, json=analysis_payload, headers=headers, timeout=30)
                 if analysis_response.status_code == 200:
                     analysis_data = analysis_response.json()
                     logger.info(f"📊 Analysis successful: {analysis_data}")
-                    # Safely extract the emotion from the structured response
+                    # This robustly extracts the single-word response.
                     emotion = analysis_data.get('data', [{}])[0].get('response', 'unknown').lower().strip()
                 else:
                     logger.error(f"❌ Analysis API error: {analysis_response.status_code} - {analysis_response.text}")
             except Exception as e:
                 logger.error(f"❌ Analysis request failed: {e}")
 
-        # 3. Generate Vector Embedding using the configured service (now Gemini)
+        # 3. Generate Vector Embedding using the configured service (Gemini)
         embedding_vector = generate_embedding(transcript_text)
 
         # --- Database Interaction ---
@@ -95,7 +95,7 @@ async def get_postcall_data(request: Request, db: Session, background_tasks: Bac
             to_phone=data.get("to"),
             from_phone=data.get("from"),
             summary=data.get("summary"),
-            call_transcript=transcript_text,
+            call_transcript=data.get("concatenated_transcript"), 
             completed=data.get("completed"),
             emotion=emotion,
             embedding=embedding_vector
