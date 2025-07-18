@@ -1,8 +1,5 @@
 from sqlalchemy import Column, String, Boolean, Text, TIMESTAMP
-from sqlalchemy.dialects.postgresql import VARCHAR, TEXT, BOOLEAN, TIMESTAMP as PGTIMESTAMP
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import VARCHAR, TEXT
 from pgvector.sqlalchemy import Vector
 from core.database import Base
 
@@ -18,4 +15,6 @@ class Call(Base):
     completed = Column(Boolean, nullable=True)
     summary = Column(Text, nullable=True)
     call_transcript = Column(Text, nullable=True)
-    embedding = Column(Vector(1024), nullable=True)  # Adjust dim if needed
+    
+    # --- UPDATED: Gemini embedding dimension is 768 ---
+    embedding = Column(Vector(768), nullable=True)
