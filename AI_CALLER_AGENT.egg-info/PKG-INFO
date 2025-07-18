@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: AI-CALLER-AGENT
+Version: 0.0.1
+Author: Yash
+Author-email: yashh2417@gmail.com
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: sqlalchemy
+Requires-Dist: psycopg2-binary
+Requires-Dist: python-dotenv
+Requires-Dist: requests
+Requires-Dist: pydantic
+Requires-Dist: jinja2
+Requires-Dist: pgvector
+Dynamic: author
+Dynamic: author-email
+Dynamic: requires-dist

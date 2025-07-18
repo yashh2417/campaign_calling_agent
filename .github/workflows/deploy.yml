@@ -27,7 +27,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bland-app:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/campaign_calling_agent:latest
 
       - name: 🚀 Trigger Render Deployment
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}

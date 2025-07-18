@@ -17,6 +17,7 @@
         </div>
 
         <div class="content">
+            <!-- Single Call Form -->
             <section class="form-section">
                 <h2>Send Single Call</h2>
                 <form id="sendCallForm">
@@ -29,17 +30,14 @@
                         <div class="form-group">
                             <label for="pathway_id">Pathway ID *</label>
                             <input type="text" id="pathway_id" name="pathway_id" placeholder="pathway-123" required>
-                            <div class="help-text">Your Bland AI pathway identifier</div>
                         </div>
                         <div class="form-group">
                             <label for="task">Task (Optional)</label>
                             <input type="text" id="task" name="task" placeholder="Customer satisfaction survey">
-                            <div class="help-text">Custom task description for the call</div>
                         </div>
                         <div class="form-group">
                             <label for="webhook">Webhook URL (Optional)</label>
                             <input type="url" id="webhook" name="webhook" placeholder="https://your-domain.com/webhook">
-                            <div class="help-text">URL to receive call completion notifications</div>
                         </div>
                     </div>
 
@@ -48,17 +46,19 @@
                         <label for="record">Record Call</label>
                     </div>
 
-                    <div class="form-group">
-                        <label for="variables">Variables (JSON)</label>
-                        <textarea id="variables" name="variables"
-                            placeholder='{"customer_name": "John Doe", "project": "Downtown Plaza"}'></textarea>
-                        <div class="help-text">Custom variables to use in the call (valid JSON format)</div>
+                    <div class="dynamic-section">
+                        <label>Variables</label>
+                        <div id="variables-container">
+                            <!-- Key-value pairs will be added here -->
+                        </div>
+                        <button type="button" id="addVariableBtn" class="btn-add">Add Variable</button>
                     </div>
 
                     <button type="submit" class="btn">Send Call</button>
                 </form>
             </section>
 
+            <!-- Batch Call Form -->
             <section class="form-section">
                 <h2>Send Batch Calls</h2>
                 <form id="sendBatchForm">
@@ -82,11 +82,12 @@
                         <label for="global_record">Record Calls</label>
                     </div>
 
-                    <div class="form-group">
-                        <label for="batch">Batch Call Data (JSON Array) *</label>
-                        <textarea id="batch" name="batch" required
-                            placeholder='[{"phone_number": "+1234567890", "variables": {"customer_name": "John"}}, {"phone_number": "+0987654321", "variables": {"customer_name": "Jane"}}]'></textarea>
-                        <div class="help-text">Array of call objects with phone numbers and variables</div>
+                    <div class="dynamic-section">
+                        <label>Calls to Batch</label>
+                        <div id="batch-container">
+                            <!-- Batch entries will be added here -->
+                        </div>
+                        <button type="button" id="addBatchNumberBtn" class="btn-add">Add Number</button>
                     </div>
 
                     <button type="submit" class="btn">Send Batch</button>
@@ -106,46 +107,67 @@
         const responseBox = document.getElementById("responseBox");
         const loadingIndicator = document.getElementById("loadingIndicator");
 
-        function showLoading() {
-            loadingIndicator.classList.add("show");
-        }
-
-        function hideLoading() {
-            loadingIndicator.classList.remove("show");
-        }
+        // --- Helper Functions ---
+        function showLoading() { loadingIndicator.classList.add("show"); }
+        function hideLoading() { loadingIndicator.classList.remove("show"); }
 
         function showResponse(data, isError = false) {
             responseBox.textContent = JSON.stringify(data, null, 2);
-            if (isError) {
-                responseBox.style.color = "#ff6b6b";
-            } else {
-                responseBox.style.color = "#e8e8e8";
-            }
+            responseBox.style.color = isError ? "#ff6b6b" : "#e8e8e8";
         }
 
-        function showError(message) {
-            showResponse({ error: message }, true);
-        }
-
-        function validateJSON(jsonString) {
-            if (!jsonString.trim()) return {};
-            try {
-                return JSON.parse(jsonString);
-            } catch (e) {
-                throw new Error(`Invalid JSON: ${e.message}`);
-            }
-        }
-
-        function validatePhoneNumber(phone) {
-            const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-            return phoneRegex.test(phone);
-        }
+        function showError(message) { showResponse({ error: message }, true); }
+        function validatePhoneNumber(phone) { return /^\+?[1-9]\d{1,14}$/.test(phone); }
 
         function disableForm(form, disabled) {
-            const elements = form.querySelectorAll('input, textarea, button');
-            elements.forEach(el => el.disabled = disabled);
+            form.querySelectorAll('input, button').forEach(el => el.disabled = disabled);
         }
 
+        // --- Dynamic Field Creation ---
+        function createVariablePair() {
+            const div = document.createElement('div');
+            div.className = 'key-value-pair';
+            div.innerHTML = `
+                <input type="text" class="variable-key" placeholder="Key">
+                <input type="text" class="variable-value" placeholder="Value">
+                <button type="button" class="btn-remove">&times;</button>
+            `;
+            div.querySelector('.btn-remove').addEventListener('click', () => div.remove());
+            return div;
+        }
+
+        function createBatchEntry() {
+            const div = document.createElement('div');
+            div.className = 'batch-entry';
+            div.innerHTML = `
+                <div class="batch-header">
+                    <input type="text" class="batch-phone-number" placeholder="Phone Number (e.g. +1...)" required>
+                    <button type="button" class="btn-remove">&times;</button>
+                </div>
+                <div class="dynamic-section nested">
+                    <label class="nested-label">Variables for this call</label>
+                    <div class="batch-variables-container"></div>
+                    <button type="button" class="btn-add btn-add-nested">Add Variable</button>
+                </div>
+            `;
+            const variablesContainer = div.querySelector('.batch-variables-container');
+            div.querySelector('.btn-add-nested').addEventListener('click', () => {
+                variablesContainer.appendChild(createVariablePair());
+            });
+            div.querySelector('.btn-remove').addEventListener('click', () => div.remove());
+            return div;
+        }
+
+        // --- Event Listeners for Adding Dynamic Fields ---
+        document.getElementById('addVariableBtn').addEventListener('click', () => {
+            document.getElementById('variables-container').appendChild(createVariablePair());
+        });
+
+        document.getElementById('addBatchNumberBtn').addEventListener('click', () => {
+            document.getElementById('batch-container').appendChild(createBatchEntry());
+        });
+
+        // --- Form Submission Logic ---
         document.getElementById("sendCallForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const form = e.target;
@@ -155,50 +177,31 @@
                 disableForm(form, true);
 
                 const phoneNumber = form.phone_number.value.trim();
-                const pathwayId = form.pathway_id.value.trim();
-                const variablesText = form.variables.value.trim();
+                if (!validatePhoneNumber(phoneNumber)) throw new Error("Invalid phone number format.");
 
-                // Validation
-                if (!validatePhoneNumber(phoneNumber)) {
-                    throw new Error("Invalid phone number format. Please include country code (e.g., +1234567890)");
-                }
-
-                if (!pathwayId) {
-                    throw new Error("Pathway ID is required");
-                }
-
-                let variables = {};
-                if (variablesText) {
-                    variables = validateJSON(variablesText);
-                }
+                const variables = {};
+                document.querySelectorAll('#variables-container .key-value-pair').forEach(pair => {
+                    const key = pair.querySelector('.variable-key').value.trim();
+                    const value = pair.querySelector('.variable-value').value.trim();
+                    if (key) variables[key] = value;
+                });
 
                 const data = {
                     phone_number: phoneNumber,
-                    pathway_id: pathwayId,
-                    variables: variables
+                    pathway_id: form.pathway_id.value.trim(),
+                    task: form.task.value.trim() || undefined,
+                    webhook: form.webhook.value.trim() || undefined,
+                    record: form.record.checked,
+                    variables: Object.keys(variables).length > 0 ? variables : undefined,
                 };
-
-                // Add optional fields only if they have values
-                const task = form.task.value.trim();
-                const webhook = form.webhook.value.trim();
-                const record = form.record.checked;
-
-                if (task) data.task = task;
-                if (webhook) data.webhook = webhook;
-                if (record) data.record = record;
 
                 const response = await fetch("/bland/sendcall", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data)
                 });
-
                 const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.detail || `HTTP ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
                 showResponse(result);
 
             } catch (error) {
@@ -217,74 +220,43 @@
                 showLoading();
                 disableForm(form, true);
 
-                const pathwayId = document.getElementById("global_pathway_id").value.trim();
-                const batchText = document.getElementById("batch").value.trim();
+                const calls = [];
+                const batchEntries = document.querySelectorAll('#batch-container .batch-entry');
+                if (batchEntries.length === 0) throw new Error("Please add at least one number to the batch.");
 
-                // Validation
-                if (!pathwayId) {
-                    throw new Error("Pathway ID is required");
-                }
+                for (const entry of batchEntries) {
+                    const phoneNumber = entry.querySelector('.batch-phone-number').value.trim();
+                    if (!validatePhoneNumber(phoneNumber)) throw new Error(`Invalid phone number: ${phoneNumber}`);
 
-                if (!batchText) {
-                    throw new Error("Batch call data is required");
-                }
+                    const variables = {};
+                    entry.querySelectorAll('.key-value-pair').forEach(pair => {
+                        const key = pair.querySelector('.variable-key').value.trim();
+                        const value = pair.querySelector('.variable-value').value.trim();
+                        if (key) variables[key] = value;
+                    });
 
-                let calls;
-                try {
-                    calls = JSON.parse(batchText);
-                } catch (e) {
-                    throw new Error(`Invalid JSON in batch data: ${e.message}`);
-                }
-
-                if (!Array.isArray(calls)) {
-                    throw new Error("Batch data must be an array");
-                }
-
-                if (calls.length === 0) {
-                    throw new Error("At least one call is required");
-                }
-
-                if (calls.length > 100) {
-                    throw new Error("Maximum 100 calls per batch");
-                }
-
-                // Validate phone numbers in batch
-                for (let i = 0; i < calls.length; i++) {
-                    const call = calls[i];
-                    if (!call.phone_number) {
-                        throw new Error(`Call ${i + 1} is missing phone_number`);
+                    const callData = { phone_number: phoneNumber };
+                    if (Object.keys(variables).length > 0) {
+                        callData.variables = variables;
                     }
-                    if (!validatePhoneNumber(call.phone_number)) {
-                        throw new Error(`Call ${i + 1} has invalid phone number: ${call.phone_number}`);
-                    }
+                    calls.push(callData);
                 }
 
                 const data = {
-                    pathway_id: pathwayId,
-                    calls: calls
+                    pathway_id: document.getElementById("global_pathway_id").value.trim(),
+                    calls: calls,
+                    task: document.getElementById("global_task").value.trim() || undefined,
+                    webhook: document.getElementById("global_webhook").value.trim() || undefined,
+                    record: document.getElementById("global_record").checked,
                 };
-
-                // Add optional global fields only if they have values
-                const task = document.getElementById("global_task").value.trim();
-                const webhook = document.getElementById("global_webhook").value.trim();
-                const record = document.getElementById("global_record").checked;
-
-                if (task) data.task = task;
-                if (webhook) data.webhook = webhook;
-                if (record) data.record = record;
 
                 const response = await fetch("/bland/sendbatch", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data)
                 });
-
                 const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.detail || `HTTP ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
                 showResponse(result);
 
             } catch (error) {
@@ -294,33 +266,7 @@
                 disableForm(form, false);
             }
         });
-
-        // Add some helpful keyboard shortcuts
-        document.addEventListener('keydown', function (e) {
-            // Ctrl/Cmd + Enter to submit the focused form
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                const activeElement = document.activeElement;
-                const form = activeElement.closest('form');
-                if (form) {
-                    form.dispatchEvent(new Event('submit'));
-                }
-            }
-        });
-
-        // Format JSON in textareas on blur
-        document.querySelectorAll('textarea').forEach(textarea => {
-            textarea.addEventListener('blur', function () {
-                if (this.value.trim() && (this.id === 'variables' || this.id === 'batch')) {
-                    try {
-                        const parsed = JSON.parse(this.value);
-                        this.value = JSON.stringify(parsed, null, 2);
-                    } catch (e) {
-                        // Keep original value if JSON is invalid
-                    }
-                }
-            });
-        });
     </script>
 </body>
 
-</html
+</html>
