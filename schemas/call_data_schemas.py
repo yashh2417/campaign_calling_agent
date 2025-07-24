@@ -13,7 +13,7 @@ class SendCallRequest(BaseModel):
     record: Optional[bool] = None
     webhook: Optional[str] = None
     
-    # --- NEW: Add metadata field for passthrough data ---
+    # metadata field for passthrough data
     metadata: Optional[Dict[str, Any]] = None
 
     @field_validator('phone_number')
@@ -42,6 +42,8 @@ class CallBase(BaseModel):
     completed: Optional[bool]
     summary: Optional[str]
     call_transcript: Optional[str]
+    followup_scheduled: Optional[bool] = False
+    followup_datetime: Optional[datetime] = None
 
 class CallCreate(CallBase):
     call_id: str

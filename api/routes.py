@@ -2,12 +2,8 @@ from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from core.database import SessionLocal
 from schemas.call_data_schemas import SendCallRequest, BatchCallRequest
-from services.call_service import (
-    get_postcall_data,
-    create_call,
-    create_batch_call,
-    get_calls_from_db
-)
+from services.webhook_service import get_postcall_data
+from services.call_creation_service import create_call, create_batch_call, get_calls_from_db
 
 router = APIRouter()
 
@@ -19,20 +15,14 @@ def get_db():
     finally:
         db.close()
 
-# The webhook endpoint now correctly accepts and passes 
 @router.post("/bland/postcall")
 async def receive_postcall(
     request: Request, 
-    background_tasks: BackgroundTasks, # FastAPI will automatically provide this
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """
-    Webhook endpoint to receive data from Bland AI after a call is completed.
-    It now correctly supports scheduling background tasks for follow-ups.
-    """
-    # The 'background_tasks' object is now correctly passed to the service layer.
+    """Webhook endpoint to receive data from Bland AI after a call is completed."""
     return await get_postcall_data(request, db, background_tasks)
-
 
 @router.post("/bland/sendcall")
 async def send_call(request: SendCallRequest):

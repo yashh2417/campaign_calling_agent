@@ -16,6 +16,6 @@ class Call(Base):
     completed = Column(Boolean, nullable=True)
     summary = Column(Text, nullable=True)
     call_transcript = Column(Text, nullable=True)
-    
-    # --- UPDATED: Gemini embedding dimension is 768 ---
     embedding = Column(Vector(768), nullable=True)
+    followup_scheduled = Column(Boolean, default=False, nullable=False)
+    followup_datetime = Column(TIMESTAMP(timezone=True), nullable=True)

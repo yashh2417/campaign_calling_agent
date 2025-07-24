@@ -6,23 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
-# --- NEW: Explicitly import all SQLAlchemy models here ---
 # This ensures that SQLAlchemy's Base metadata is aware of your models
-# before the create_db_and_tables function is called on startup.
-# This is the fix for the "relation public.calls does not exist" error.
 from models.call_table import Call
-# If you add more models in the future, import them here as well.
-# --- End of new import ---
 
-# --- Logging Configuration ---
-# Configure the root logger to output messages to the console.
 # This will capture logs from all modules in your application.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     stream=sys.stdout,
 )
-# --- End of Logging Configuration ---
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 

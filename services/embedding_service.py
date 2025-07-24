@@ -23,7 +23,7 @@ def generate_embedding(text: str) -> list[float] | None:
         return None
         
     try:
-        # Use a standard Google embedding model.
+    
         # The task_type is important for tailoring the embedding to your use case.
         result = genai.embed_content(
             model="models/embedding-001",
