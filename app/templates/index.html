@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bland AI Call Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bland AI Call Dashboard</h1>
+            <p>Manage AI-powered phone calls with ease</p>
+        </div>
+
+        <div class="content">
+            <!-- Single Call Form -->
+            <section class="form-section">
+                <h2>Send Single Call</h2>
+                <form id="sendCallForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="phone_number">Phone Number *</label>
+                            <input type="text" id="phone_number" name="phone_number" placeholder="+1234567890" required>
+                            <div class="help-text">Include country code (e.g., +1 for US)</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="pathway_id">Pathway ID *</label>
+                            <input type="text" id="pathway_id" name="pathway_id" placeholder="pathway-123" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="task">Task (Optional)</label>
+                            <input type="text" id="task" name="task" placeholder="Customer satisfaction survey">
+                        </div>
+                        <div class="form-group">
+                            <label for="webhook">Webhook URL (Optional)</label>
+                            <input type="url" id="webhook" name="webhook" placeholder="https://your-domain.com/webhook">
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="record" name="record">
+                        <label for="record">Record Call</label>
+                    </div>
+
+                    <div class="dynamic-section">
+                        <label>Variables</label>
+                        <div id="variables-container">
+                            <!-- Key-value pairs will be added here -->
+                        </div>
+                        <button type="button" id="addVariableBtn" class="btn-add">Add Variable</button>
+                    </div>
+
+                    <button type="submit" class="btn">Send Call</button>
+                </form>
+            </section>
+
+            <!-- Batch Call Form -->
+            <section class="form-section">
+                <h2>Send Batch Calls</h2>
+                <form id="sendBatchForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="global_pathway_id">Pathway ID *</label>
+                            <input type="text" id="global_pathway_id" placeholder="pathway-123" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="global_task">Task (Optional)</label>
+                            <input type="text" id="global_task" placeholder="Customer satisfaction survey">
+                        </div>
+                        <div class="form-group">
+                            <label for="global_webhook">Webhook URL (Optional)</label>
+                            <input type="url" id="global_webhook" placeholder="https://your-domain.com/webhook">
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="global_record">
+                        <label for="global_record">Record Calls</label>
+                    </div>
+
+                    <div class="dynamic-section">
+                        <label>Calls to Batch</label>
+                        <div id="batch-container">
+                            <!-- Batch entries will be added here -->
+                        </div>
+                        <button type="button" id="addBatchNumberBtn" class="btn-add">Add Number</button>
+                    </div>
+
+                    <button type="submit" class="btn">Send Batch</button>
+                </form>
+            </section>
+
+            <div class="loading" id="loadingIndicator">Processing request</div>
+
+            <section class="output">
+                <h2>Response</h2>
+                <pre id="responseBox">Ready to send calls...</pre>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const responseBox = document.getElementById("responseBox");
+        const loadingIndicator = document.getElementById("loadingIndicator");
+
+        // --- Helper Functions ---
+        function showLoading() { loadingIndicator.classList.add("show"); }
+        function hideLoading() { loadingIndicator.classList.remove("show"); }
+
+        function showResponse(data, isError = false) {
+            responseBox.textContent = JSON.stringify(data, null, 2);
+            responseBox.style.color = isError ? "#ff6b6b" : "#e8e8e8";
+        }
+
+        function showError(message) { showResponse({ error: message }, true); }
+        function validatePhoneNumber(phone) { return /^\+?[1-9]\d{1,14}$/.test(phone); }
+
+        function disableForm(form, disabled) {
+            form.querySelectorAll('input, button').forEach(el => el.disabled = disabled);
+        }
+
+        // --- Dynamic Field Creation ---
+        function createVariablePair() {
+            const div = document.createElement('div');
+            div.className = 'key-value-pair';
+            div.innerHTML = `
+                <input type="text" class="variable-key" placeholder="Key">
+                <input type="text" class="variable-value" placeholder="Value">
+                <button type="button" class="btn-remove">&times;</button>
+            `;
+            div.querySelector('.btn-remove').addEventListener('click', () => div.remove());
+            return div;
+        }
+
+        function createBatchEntry() {
+            const div = document.createElement('div');
+            div.className = 'batch-entry';
+            div.innerHTML = `
+                <div class="batch-header">
+                    <input type="text" class="batch-phone-number" placeholder="Phone Number (e.g. +1...)" required>
+                    <button type="button" class="btn-remove">&times;</button>
+                </div>
+                <div class="dynamic-section nested">
+                    <label class="nested-label">Variables for this call</label>
+                    <div class="batch-variables-container"></div>
+                    <button type="button" class="btn-add btn-add-nested">Add Variable</button>
+                </div>
+            `;
+            const variablesContainer = div.querySelector('.batch-variables-container');
+            div.querySelector('.btn-add-nested').addEventListener('click', () => {
+                variablesContainer.appendChild(createVariablePair());
+            });
+            div.querySelector('.btn-remove').addEventListener('click', () => div.remove());
+            return div;
+        }
+
+        // --- Event Listeners for Adding Dynamic Fields ---
+        document.getElementById('addVariableBtn').addEventListener('click', () => {
+            document.getElementById('variables-container').appendChild(createVariablePair());
+        });
+
+        document.getElementById('addBatchNumberBtn').addEventListener('click', () => {
+            document.getElementById('batch-container').appendChild(createBatchEntry());
+        });
+
+        // --- Form Submission Logic ---
+        document.getElementById("sendCallForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+
+            try {
+                showLoading();
+                disableForm(form, true);
+
+                const phoneNumber = form.phone_number.value.trim();
+                if (!validatePhoneNumber(phoneNumber)) throw new Error("Invalid phone number format.");
+
+                const variables = {};
+                document.querySelectorAll('#variables-container .key-value-pair').forEach(pair => {
+                    const key = pair.querySelector('.variable-key').value.trim();
+                    const value = pair.querySelector('.variable-value').value.trim();
+                    if (key) variables[key] = value;
+                });
+
+                const data = {
+                    phone_number: phoneNumber,
+                    pathway_id: form.pathway_id.value.trim(),
+                    task: form.task.value.trim() || undefined,
+                    webhook: form.webhook.value.trim() || undefined,
+                    record: form.record.checked,
+                    variables: Object.keys(variables).length > 0 ? variables : undefined,
+                };
+
+                const response = await fetch("/bland/sendcall", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+                showResponse(result);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+                disableForm(form, false);
+            }
+        });
+
+        document.getElementById("sendBatchForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const form = e.target;
+
+            try {
+                showLoading();
+                disableForm(form, true);
+
+                const calls = [];
+                const batchEntries = document.querySelectorAll('#batch-container .batch-entry');
+                if (batchEntries.length === 0) throw new Error("Please add at least one number to the batch.");
+
+                for (const entry of batchEntries) {
+                    const phoneNumber = entry.querySelector('.batch-phone-number').value.trim();
+                    if (!validatePhoneNumber(phoneNumber)) throw new Error(`Invalid phone number: ${phoneNumber}`);
+
+                    const variables = {};
+                    entry.querySelectorAll('.key-value-pair').forEach(pair => {
+                        const key = pair.querySelector('.variable-key').value.trim();
+                        const value = pair.querySelector('.variable-value').value.trim();
+                        if (key) variables[key] = value;
+                    });
+
+                    const callData = { phone_number: phoneNumber };
+                    if (Object.keys(variables).length > 0) {
+                        callData.variables = variables;
+                    }
+                    calls.push(callData);
+                }
+
+                const data = {
+                    pathway_id: document.getElementById("global_pathway_id").value.trim(),
+                    calls: calls,
+                    task: document.getElementById("global_task").value.trim() || undefined,
+                    webhook: document.getElementById("global_webhook").value.trim() || undefined,
+                    record: document.getElementById("global_record").checked,
+                };
+
+                const response = await fetch("/bland/sendbatch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+                showResponse(result);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+                disableForm(form, false);
+            }
+        });
+    </script>
+</body>
+
+</html>
