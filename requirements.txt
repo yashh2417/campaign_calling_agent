@@ -1,4 +1,4 @@
-# -e git+https://github.com/yashh2417/campaign_calling_agent.git@1aa29d743a4cdaa73e6bc6d53b787025cb01ba1b#egg=AI_CALLER_AGENT
+-e git+https://github.com/yashh2417/campaign_calling_agent.git@5947b0029653f60b3a0a39e3e846a59cfad7cec8#egg=AI_CALLER_AGENT
 annotated-types==0.7.0
 anyio==4.9.0
 cachetools==5.5.2
@@ -30,9 +30,11 @@ psycopg2-binary==2.9.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pydantic==2.11.7
+pydantic-settings==2.10.1
 pydantic_core==2.33.2
 pyparsing==3.2.3
 python-dotenv==1.1.1
+python-multipart==0.0.20
 PyYAML==6.0.2
 requests==2.32.4
 rsa==4.9.1
@@ -48,7 +50,3 @@ uvicorn==0.35.0
 uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1
-
-# -e .
-
-
