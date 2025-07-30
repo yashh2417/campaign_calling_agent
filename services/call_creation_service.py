@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from core.config import settings
 from core.database import logger
-from crud.db_campaign import get_campaign_by_id, update_campaign_batch_id # <-- Add the new import
+from crud.db_campaign import get_campaign_by_id, update_campaign_batch_id
 from crud.db_contact import get_contacts_by_ids
 from schemas.call_data_schemas import BatchCallRequest
 
@@ -27,64 +27,123 @@ async def start_campaign_calls(request: BatchCallRequest, db: Session):
     # 1. Prepare the list of call objects for the batch
     call_objects = []
     for contact in contacts:
-        # The task personalization still happens for each contact
-        personalized_task = campaign.task.replace("{contact_name}", contact.name)
+        # The task personalization happens for each contact
+        personalized_task = (campaign.task or "").replace("{contact_name}", contact.name)
         
         call_objects.append({
             "phone_number": contact.phone_number,
-            # We override the global task with the personalized one for each call
             "task": personalized_task,
+            # Add metadata for each call to track it back to the campaign
+            "metadata": {
+                "contact_id": str(contact.id),
+                "contact_name": contact.name,
+                "campaign_id": str(campaign.campaign_id)
+            }
         })
 
-    # 2. Set the start time for the batch
-    # As per your docs, this must be at least 30 mins in the future.
-    start_time_utc = datetime.now(timezone.utc) + timedelta(minutes=31)
+    # 2. Determine the start time for the batch
+    now_utc = datetime.now(timezone.utc)
+    
+    if campaign.start_date:
+        # Use the campaign's scheduled start time
+        if campaign.start_date.tzinfo is None:
+            # If timezone-naive, assume UTC
+            start_time_utc = campaign.start_date.replace(tzinfo=timezone.utc)
+        else:
+            start_time_utc = campaign.start_date.astimezone(timezone.utc)
+            
+        # Check if the scheduled time is at least 30 minutes in the future
+        min_start_time = now_utc + timedelta(minutes=30)
+        if start_time_utc < min_start_time:
+            logger.warning(f"⚠️ Scheduled start time {start_time_utc} is less than 30 minutes from now. Using minimum required time.")
+            start_time_utc = min_start_time
+    else:
+        # Default to 30 minutes from now (minimum required by Bland AI)
+        start_time_utc = now_utc + timedelta(minutes=30)
+
+    logger.info(f"📅 Batch scheduled to start at: {start_time_utc.isoformat()}")
 
     # 3. Construct the payload with the correct structure for the v2 batch API
     batch_payload = {
-        "global": {
-            # The campaign's main task is the global prompt
-            "task": campaign.task,
-            "voice": campaign.voice,
-            "start_time": start_time_utc.isoformat(),
-            # Make sure WEBHOOK_URL is set in your .env and config files
-            "webhook": settings.WEBHOOK_URL,
-            "record": True,
-            # The campaign_id from your DB is passed as metadata for tracking
-            "metadata": { "campaign_id": str(campaign.campaign_id) }
-        },
-        "call_objects": call_objects
+        "label": f"Campaign: {campaign.campaign_name}",  # Optional label for identification
+        "base_prompt": campaign.task or "Make a call to the contact.",
+        "call_data": call_objects,
+        "start_time": start_time_utc.isoformat(),
+        "webhook": settings.WEBHOOK_URL,
+        "record": True,
+        "voice_id": campaign.voice or "maya",  # Default voice if not specified
+        "metadata": {
+            "campaign_id": str(campaign.campaign_id),
+            "campaign_name": campaign.campaign_name,
+            "batch_created_at": now_utc.isoformat()
+        }
     }
 
     # 4. Make a single API call to the batch endpoint
     try:
-        url = "https://api.bland.ai/v2/batches/create"
-        headers = {"Authorization": f"Bearer {settings.BLAND_API_KEY}", "Content-Type": "application/json"}
+        url = "https://api.bland.ai/v1/batches"  # Updated to v1 batches endpoint
+        headers = {
+            "Authorization": f"Bearer {settings.BLAND_API_KEY}", 
+            "Content-Type": "application/json"
+        }
         
         logger.info(f"📤 Sending batch request for campaign '{campaign.campaign_name}' with {len(call_objects)} calls.")
+        logger.info(f"🔗 Using webhook URL: {settings.WEBHOOK_URL}")
         
-        response = requests.post(url, json=batch_payload, headers=headers, timeout=30)
+        response = requests.post(url, json=batch_payload, headers=headers, timeout=60)
+        
+        # Log the full response for debugging
+        logger.info(f"📥 Bland AI Response Status: {response.status_code}")
+        logger.info(f"📥 Bland AI Response Body: {response.text}")
+        
         response.raise_for_status()
         
         response_data = response.json()
-        # The actual batch_id created by Bland AI
-        batch_id = response_data.get("data", {}).get("batch_id")
-
-        logger.info(f"✅ Batch created successfully with batch_id: {batch_id}")
+        
+        # Extract batch_id from response (structure may vary)
+        batch_id = None
+        if "batch_id" in response_data:
+            batch_id = response_data["batch_id"]
+        elif "data" in response_data and "batch_id" in response_data["data"]:
+            batch_id = response_data["data"]["batch_id"]
+        elif "id" in response_data:
+            batch_id = response_data["id"]
 
         if batch_id:
+            logger.info(f"✅ Batch created successfully with batch_id: {batch_id}")
+            # Update the campaign with the batch_id
             update_campaign_batch_id(db, campaign_id=campaign.campaign_id, batch_id=batch_id)
-        
-        # Here you could update your campaign record in the DB with this new batch_id if needed
-        # campaign.latest_batch_id = batch_id
-        # db.commit()
+        else:
+            logger.warning("⚠️ Batch created but no batch_id returned in response")
 
-        return {"status": "success", "message": "Campaign batch created successfully.", "batch_id": batch_id}
+        return {
+            "status": "success", 
+            "message": f"Campaign batch created successfully. {len(call_objects)} calls scheduled.", 
+            "batch_id": batch_id,
+            "start_time": start_time_utc.isoformat(),
+            "call_count": len(call_objects),
+            "response_data": response_data  # Include full response for debugging
+        }
 
     except requests.exceptions.HTTPError as http_err:
-        error_detail = http_err.response.text
+        error_detail = "Unknown HTTP error"
+        try:
+            error_response = http_err.response.json()
+            error_detail = error_response.get("message", error_response.get("error", http_err.response.text))
+        except:
+            error_detail = http_err.response.text
+            
         logger.error(f"❌ HTTP error creating batch: {http_err} - {error_detail}")
-        raise HTTPException(status_code=http_err.response.status_code, detail=f"HTTP error from Bland AI: {error_detail}")
+        raise HTTPException(
+            status_code=http_err.response.status_code, 
+            detail=f"Bland AI API error: {error_detail}"
+        )
+    except requests.exceptions.Timeout:
+        logger.error("❌ Request to Bland AI timed out")
+        raise HTTPException(status_code=504, detail="Request to Bland AI timed out")
+    except requests.exceptions.RequestException as req_err:
+        logger.error(f"❌ Request error: {req_err}")
+        raise HTTPException(status_code=502, detail="Failed to connect to Bland AI")
     except Exception as e:
         logger.error(f"❌ Unexpected error creating batch: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
