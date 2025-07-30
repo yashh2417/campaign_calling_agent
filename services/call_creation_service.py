@@ -65,23 +65,24 @@ async def start_campaign_calls(request: BatchCallRequest, db: Session):
 
     # 3. Construct the payload with the correct structure for the v2 batch API
     batch_payload = {
-        "label": f"Campaign: {campaign.campaign_name}",  # Optional label for identification
-        "base_prompt": campaign.task or "Make a call to the contact.",
-        "call_data": call_objects,
-        "start_time": start_time_utc.isoformat(),
-        "webhook": settings.WEBHOOK_URL,
-        "record": True,
-        "voice_id": campaign.voice or "maya",  # Default voice if not specified
-        "metadata": {
-            "campaign_id": str(campaign.campaign_id),
-            "campaign_name": campaign.campaign_name,
-            "batch_created_at": now_utc.isoformat()
+        "call_objects": call_objects,
+        "global": {
+            "task": campaign.task or "Make a call to the contact.",
+            "voice": campaign.voice or "maya",
+            "start_time": start_time_utc.isoformat(),
+            "webhook": settings.WEBHOOK_URL,
+            "record": True,
+            "metadata": {
+                "campaign_id": str(campaign.campaign_id),
+                "campaign_name": campaign.campaign_name,
+                "batch_created_at": now_utc.isoformat()
+            }
         }
     }
 
     # 4. Make a single API call to the batch endpoint
     try:
-        url = "https://api.bland.ai/v1/batches"  # Updated to v1 batches endpoint
+        url = "https://api.bland.ai/v2/batches/create"  # Correct endpoint
         headers = {
             "Authorization": f"Bearer {settings.BLAND_API_KEY}", 
             "Content-Type": "application/json"
@@ -100,15 +101,9 @@ async def start_campaign_calls(request: BatchCallRequest, db: Session):
         
         response_data = response.json()
         
-        # Extract batch_id from response (structure may vary)
-        batch_id = None
-        if "batch_id" in response_data:
-            batch_id = response_data["batch_id"]
-        elif "data" in response_data and "batch_id" in response_data["data"]:
-            batch_id = response_data["data"]["batch_id"]
-        elif "id" in response_data:
-            batch_id = response_data["id"]
-
+        # Extract batch_id from response
+        batch_id = response_data.get("batch_id")
+        
         if batch_id:
             logger.info(f"✅ Batch created successfully with batch_id: {batch_id}")
             # Update the campaign with the batch_id
