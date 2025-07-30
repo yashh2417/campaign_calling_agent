@@ -37,7 +37,6 @@ class Settings:
     
     # Webhook configuration
     WEBHOOK_SECRET: str = os.getenv("WEBHOOK_SECRET", "your-webhook-secret")
-    WEBHOOK_URL: str = os.getenv("WEBHOOK_URL", "http://localhost:8000/webhook")
     
     # Application settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
@@ -46,6 +45,27 @@ class Settings:
     # Pagination defaults
     DEFAULT_PAGE_SIZE: int = int(os.getenv("DEFAULT_PAGE_SIZE", "50"))
     MAX_PAGE_SIZE: int = int(os.getenv("MAX_PAGE_SIZE", "1000"))
+    
+    @property
+    def WEBHOOK_URL(self) -> str:
+        """Get webhook URL with proper validation and cleanup"""
+        webhook_url = os.getenv("WEBHOOK_URL", "http://localhost:8000/webhook")
+        
+        # Clean up common issues
+        # Remove double slashes (except after http://)
+        if "//" in webhook_url.replace("https://", "").replace("http://", ""):
+            # Split at protocol, clean the rest, rejoin
+            if webhook_url.startswith("https://"):
+                clean_url = "https://" + webhook_url[8:].replace("//", "/")
+            elif webhook_url.startswith("http://"):
+                clean_url = "http://" + webhook_url[7:].replace("//", "/")
+            else:
+                clean_url = webhook_url.replace("//", "/")
+            
+            print(f"INFO: Cleaned webhook URL from '{webhook_url}' to '{clean_url}'")
+            return clean_url
+        
+        return webhook_url
     
     def validate_settings(self):
         """Validate that all required settings are present"""
@@ -56,6 +76,14 @@ class Settings:
         
         if not self.BLAND_API_KEY:
             errors.append("BLAND_API_KEY is required")
+        
+        # Validate webhook URL format
+        webhook_url = self.WEBHOOK_URL
+        if not webhook_url.startswith(("http://", "https://")):
+            errors.append("WEBHOOK_URL must start with http:// or https://")
+        
+        if "localhost" in webhook_url or "127.0.0.1" in webhook_url:
+            print("WARNING: Using localhost webhook URL - this won't work in production")
             
         if errors:
             raise ValueError(f"Configuration errors: {', '.join(errors)}")
@@ -67,6 +95,7 @@ settings = Settings()
 try:
     settings.validate_settings()
     print("INFO: Settings loaded and validated successfully.")
+    print(f"INFO: Using webhook URL: {settings.WEBHOOK_URL}")
 except ValueError as e:
     print(f"FATAL ERROR: {e}")
     raise
