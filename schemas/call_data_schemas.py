@@ -1,19 +1,16 @@
+import uuid
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 import re
 from datetime import datetime
 
-# --- Request Schemas ---
-
 class SendCallRequest(BaseModel):
     phone_number: str
-    pathway_id: str
+    pathway_id: Optional[str] = None
     variables: Optional[Dict[str, Any]] = None
     task: Optional[str] = None
     record: Optional[bool] = None
     webhook: Optional[str] = None
-    
-    # metadata field for passthrough data
     metadata: Optional[Dict[str, Any]] = None
 
     @field_validator('phone_number')
@@ -22,18 +19,12 @@ class SendCallRequest(BaseModel):
             raise ValueError('Invalid phone number format')
         return v
 
-class BatchCallRequestItem(BaseModel):
-    phone_number: str
-    variables: Optional[Dict[str, Any]] = None
-
 class BatchCallRequest(BaseModel):
-    pathway_id: str
-    calls: List[BatchCallRequestItem]
+    campaign_id: uuid.UUID
+    calls: Optional[List[SendCallRequest]] = None
     task: Optional[str] = None
     record: Optional[bool] = None
     webhook: Optional[str] = None
-
-# --- Database Schemas ---
 
 class CallBase(BaseModel):
     emotion: Optional[str]
@@ -48,12 +39,14 @@ class CallBase(BaseModel):
 class CallCreate(CallBase):
     call_id: str
     batch_id: Optional[str] = None
-    embedding: Optional[list[float]]
+    embedding: Optional[list[float]] = None
+    campaign_id: Optional[uuid.UUID] = None
 
 class CallRead(CallBase):
     call_id: str
     batch_id: Optional[str] = None
     created_at: Optional[datetime]
+    campaign_id: Optional[uuid.UUID] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
