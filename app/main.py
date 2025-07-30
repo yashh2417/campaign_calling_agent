@@ -1,67 +1,94 @@
 import logging
-import sys
-import os
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+import time
+import traceback
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-
-# This ensures that SQLAlchemy's Base metadata is aware of your models
-from models.call_table import Call
-
-# This will capture logs from all modules in your application.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    stream=sys.stdout,
-)
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from core.database import create_db_and_tables
-from core.config import settings
-from api.routes import router as api_router
+from fastapi.middleware.cors import CORSMiddleware
+from logging.handlers import RotatingFileHandler
+from core.database import create_db_and_tables, get_db
+from api import campaign_routes, contact_routes, routes
 from core.templates import templates
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
-app = FastAPI(
-    title="Bland AI Call Dashboard",
-    description="Dashboard for managing AI-powered phone calls",
-    version="1.0.0"
-)
+# This is important: it ensures SQLAlchemy knows about your models before creating tables.
+from models import campaign, contact, call_table
+
+# Setup logging
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            RotatingFileHandler('app.log', maxBytes=10485760, backupCount=5),
+            logging.StreamHandler()
+        ]
+    )
+
+setup_logging()
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Lead Generation AI", version="1.0.0")
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global exception on {request.method} {request.url}: {exc}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": "Internal server error", "detail": str(exc)}
+    )
+
+# Request/Response logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    logger.info(f"{request.method} {request.url} - {response.status_code} - {process_time:.4f}s")
+    return response
 
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
-# Static files & templates
+# Mount static files directory
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Database connection on startup
 @app.on_event("startup")
 def on_startup():
-    """
-    This function runs when the FastAPI application starts.
-    It will now correctly see the `Call` model and create the table if it doesn't exist.
-    """
-    logger = logging.getLogger(__name__)
-    logger.info("🚀 Application startup: Attempting to create database and tables...")
+    logger.info("🚀 Application startup: Creating database and tables...")
     create_db_and_tables()
 
-# Homepage Route
+# Health check endpoint
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    try:
+        # Test database connection
+        db.execute("SELECT 1")
+        return {"status": "healthy", "database": "connected", "timestamp": time.time()}
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": str(e)}
+        )
+
+# API Routers
+app.include_router(routes.router)
+app.include_router(campaign_routes.router)
+app.include_router(contact_routes.router)
+
+# Frontend Route
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """Serve the dashboard homepage"""
+    """Serve the campaign dashboard homepage"""
     return templates.TemplateResponse("index.html", {"request": request})
-
-# Include API routes from api/routes.py
-app.include_router(api_router)
-
-# This block is for running the app locally with uvicorn
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
