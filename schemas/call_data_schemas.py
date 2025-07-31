@@ -27,7 +27,7 @@ class BatchCallRequest(BaseModel):
     webhook: Optional[str] = None
 
 class CallBase(BaseModel):
-    emotion: Optional[str]
+    emotion: Optional[str] = None
     from_phone: Optional[str]
     to_phone: Optional[str]
     completed: Optional[bool]

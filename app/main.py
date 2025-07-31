@@ -7,13 +7,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from logging.handlers import RotatingFileHandler
 from core.database import create_db_and_tables, get_db
-from api import campaign_routes, contact_routes, routes
+from api import campaign_routes, contact_routes, routes, features_routes, user_routes
 from core.templates import templates
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
 # This is important: it ensures SQLAlchemy knows about your models before creating tables.
-from models import campaign, contact, call_table
+from models import campaign, contact, call_table, user
 
 # Setup logging
 def setup_logging():
@@ -86,6 +86,8 @@ def health_check(db: Session = Depends(get_db)):
 app.include_router(routes.router)
 app.include_router(campaign_routes.router)
 app.include_router(contact_routes.router)
+app.include_router(features_routes.router)
+app.include_router(user_routes.router)
 
 # Frontend Route
 @app.get("/", response_class=HTMLResponse)

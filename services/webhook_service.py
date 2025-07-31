@@ -49,7 +49,7 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
             "summary": data.get("summary"),
             "call_transcript": data.get("concatenated_transcript", "").strip() or data.get("transcript", "").strip(),
             "completed": data.get("completed", data.get("status") == "completed"),
-            "emotion": data.get("emotion"),
+            "emotion": data.get("emotion", "unknown"),
         }
         
         # Remove None values

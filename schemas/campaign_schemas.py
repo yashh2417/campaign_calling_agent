@@ -11,6 +11,9 @@ class CampaignBase(BaseModel):
     agent_name: Optional[str] = None
     task: Optional[str] = None
     voice: Optional[str] = None
+    agent_role: Optional[str] = None
+    language: Optional[str] = "en"
+    voicemail_message: Optional[str] = None
     pathway_id: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
