@@ -7,6 +7,65 @@
     <title>Lead Generation AI Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <style>
+        .test-voice-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .voice-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .voice-option {
+            padding: 12px;
+            border: 2px solid #e0e7ff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .voice-option:hover {
+            border-color: #4f46e5;
+            background: #f0f9ff;
+        }
+
+        .voice-option.selected {
+            border-color: #4f46e5;
+            background: #e0e7ff;
+            font-weight: 600;
+        }
+
+        .user-management {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+    </style>
 </head>
 
 <body>
@@ -23,10 +82,17 @@
                 <button class="nav-tab" onclick="showTab('calls')">
                     <i class="fas fa-phone"></i> Call History
                 </button>
+                <button class="nav-tab" onclick="showTab('users')">
+                    <i class="fas fa-user-cog"></i> Users
+                </button>
+                <button class="nav-tab" onclick="showTab('test-voice')">
+                    <i class="fas fa-microphone"></i> Test Voice
+                </button>
             </div>
         </div>
 
         <div class="content-area">
+            <!-- Campaigns Tab -->
             <div id="campaigns-tab" class="tab-content">
                 <div class="content-header">
                     <h2>Campaign Configuration</h2>
@@ -34,10 +100,10 @@
                         <i class="fas fa-plus"></i> Create New Campaign
                     </button>
                 </div>
-                <div id="campaigns-grid" class="campaign-grid">
-                </div>
+                <div id="campaigns-grid" class="campaign-grid"></div>
             </div>
 
+            <!-- Contacts Tab -->
             <div id="contacts-tab" class="tab-content hidden">
                 <div class="content-header">
                     <h2>Contact Management</h2>
@@ -48,20 +114,77 @@
                             Add Contact</button>
                     </div>
                 </div>
-                <div id="contacts-list">
-                </div>
+                <div id="contacts-list"></div>
             </div>
 
+            <!-- Call History Tab -->
             <div id="calls-tab" class="tab-content hidden">
                 <div class="content-header">
                     <h2>Call History</h2>
                 </div>
-                <div id="calls-list">
+                <div id="calls-list"></div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content hidden">
+                <div class="content-header">
+                    <h2>User Management</h2>
+                    <button class="btn btn-primary" onclick="showCreateUserModal()">
+                        <i class="fas fa-plus"></i> Add User
+                    </button>
+                </div>
+                <div id="users-list"></div>
+            </div>
+
+            <!-- Test Voice Tab -->
+            <div id="test-voice-tab" class="tab-content hidden">
+                <div class="content-header">
+                    <h2>Test Agent Voices</h2>
+                </div>
+                <div class="test-voice-section">
+                    <h3>Preview Different Agent Voices</h3>
+                    <p>Enter your phone number and select a voice to receive a test call.</p>
+
+                    <div class="form-group">
+                        <label class="form-label">Your Phone Number</label>
+                        <input type="tel" id="test-phone" class="form-input" placeholder="+1234567890" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Select Voice</label>
+                        <div class="voice-selector">
+                            <div class="voice-option" data-voice="maya" onclick="selectVoice('maya')">
+                                <i class="fas fa-female"></i><br>Maya<br><small>Professional Female</small>
+                            </div>
+                            <div class="voice-option" data-voice="ryan" onclick="selectVoice('ryan')">
+                                <i class="fas fa-male"></i><br>Ryan<br><small>Friendly Male</small>
+                            </div>
+                            <div class="voice-option" data-voice="sophia" onclick="selectVoice('sophia')">
+                                <i class="fas fa-female"></i><br>Sophia<br><small>Warm Female</small>
+                            </div>
+                            <div class="voice-option" data-voice="james" onclick="selectVoice('james')">
+                                <i class="fas fa-male"></i><br>James<br><small>Deep Male</small>
+                            </div>
+                            <div class="voice-option" data-voice="maeve" onclick="selectVoice('maeve')">
+                                <i class="fas fa-female"></i><br>Maeve<br><small>Energetic Female</small>
+                            </div>
+                            <div class="voice-option" data-voice="liam" onclick="selectVoice('liam')">
+                                <i class="fas fa-male"></i><br>Liam<br><small>Calm Male</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="testVoice()" id="test-voice-btn" disabled>
+                        <i class="fas fa-phone"></i> Test Selected Voice
+                    </button>
+
+                    <div id="voice-test-result"></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Campaign Modal -->
     <div id="create-campaign-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
@@ -96,58 +219,3 @@
                 </div>
             </form>
         </div>
-    </div>
-
-    <div id="create-contact-modal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Add New Contact</h3>
-                <button class="close-btn" onclick="hideModal('create-contact-modal')">&times;</button>
-            </div>
-            <form id="contact-form">
-                <div class="form-group">
-                    <label class="form-label">Name</label>
-                    <input type="text" class="form-input" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Phone Number</label>
-                    <input type="tel" class="form-input" name="phone_number" required placeholder="+1234567890">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Company Name</label>
-                    <input type="text" class="form-input" name="company_name">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-input" name="email">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary"
-                        onclick="hideModal('create-contact-modal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Contact</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="contact-selector-modal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Select Contacts for Campaign</h3>
-                <button class="close-btn" onclick="hideModal('contact-selector-modal')">&times;</button>
-            </div>
-            <div id="contact-selector-list">
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary"
-                    onclick="hideModal('contact-selector-modal')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="confirmContactSelection()">Confirm
-                    Selection</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="/static/app.js"></script>
-</body>
-
-</html>
