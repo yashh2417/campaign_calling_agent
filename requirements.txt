@@ -1,4 +1,4 @@
--e git+https://github.com/yashh2417/campaign_calling_agent.git@5947b0029653f60b3a0a39e3e846a59cfad7cec8#egg=AI_CALLER_AGENT
+# -e git+https://github.com/yashh2417/campaign_calling_agent.git@5947b0029653f60b3a0a39e3e846a59cfad7cec8#egg=AI_CALLER_AGENT
 annotated-types==0.7.0
 anyio==4.9.0
 cachetools==5.5.2

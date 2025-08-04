@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from core.database import logger
 from crud.db_calls import create_call_db
 from schemas.call_data_schemas import CallCreate
+from services.sentiment_service import get_sentiment_from_transcript
 
 async def process_webhook(request: Request, db: Session, background_tasks: BackgroundTasks):
     """
@@ -38,6 +39,10 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
         
         # Extract batch_id
         batch_id = data.get('batch_id') or metadata.get('batch_id')
+
+        call_transcript = data.get("concatenated_transcript", "").strip() or data.get("transcript", "").strip()
+
+        emotion = get_sentiment_from_transcript(call_transcript)
         
         # Extract call details
         call_data = {
@@ -47,9 +52,9 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
             "to_phone": data.get("to") or data.get("phone_number"),
             "from_phone": data.get("from"),
             "summary": data.get("summary"),
-            "call_transcript": data.get("concatenated_transcript", "").strip() or data.get("transcript", "").strip(),
+            "call_transcript": call_transcript,
             "completed": data.get("completed", data.get("status") == "completed"),
-            "emotion": data.get("emotion", "unknown"),
+            "emotion": emotion,
         }
         
         # Remove None values

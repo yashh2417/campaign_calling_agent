@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EICE-AIM - AI Campaign Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .glass-effect {
+            backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+        }
+
+        .dark-glass {
+            backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(17, 25, 40, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.125);
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hover-scale {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+
+        .sidebar-item {
+            transition: all 0.3s ease;
+            border-radius: 12px;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            transform: translateX(4px);
+        }
+
+        .sidebar-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-left: 4px solid #6366f1;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen gradient-bg flex items-center justify-center p-4">
+        <div class="glass-effect rounded-3xl shadow-2xl p-8 w-full max-w-md animate-fadeIn">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">EICE-AIM</h1>
+                <p class="text-gray-600">AI Campaign Management System</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <form onsubmit="handleLogin(event)">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="loginEmail" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" id="loginPassword" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                            Sign In
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-6 text-center">
+                    <button onclick="showRegisterForm()" class="text-indigo-600 hover:text-indigo-700 font-medium">
+                        Don't have an account? Sign up
+                    </button>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="hidden">
+                <form onsubmit="handleRegister(event)">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                            <input type="text" id="registerName" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="registerEmail" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                            <input type="tel" id="registerPhone" required placeholder="+1234567890"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+                            <input type="text" id="registerBusiness"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" id="registerPassword" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                            Create Account
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-6 text-center">
+                    <button onclick="showLoginForm()" class="text-indigo-600 hover:text-indigo-700 font-medium">
+                        Already have an account? Sign in
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Sidebar -->
+        <div class="fixed inset-y-0 left-0 w-64 dark-glass shadow-lg z-30">
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-white mb-8">EICE-AIM</h2>
+                <nav class="space-y-2">
+                    <a href="#" onclick="showSection('dashboard-overview')"
+                        class="sidebar-item flex items-center px-4 py-3 text-gray-300 hover:text-white">
+                        <i class="fas fa-chart-line mr-3"></i>
+                        Dashboard
+                    </a>
+                    <a href="#" onclick="showSection('campaigns')"
+                        class="sidebar-item flex items-center px-4 py-3 text-gray-300 hover:text-white">
+                        <i class="fas fa-bullhorn mr-3"></i>
+                        Campaigns
+                    </a>
+                    <a href="#" onclick="showSection('contacts')"
+                        class="sidebar-item flex items-center px-4 py-3 text-gray-300 hover:text-white">
+                        <i class="fas fa-address-book mr-3"></i>
+                        Contacts
+                    </a>
+                    <a href="#" onclick="showSection('call-history')"
+                        class="sidebar-item flex items-center px-4 py-3 text-gray-300 hover:text-white">
+                        <i class="fas fa-phone mr-3"></i>
+                        Call History
+                    </a>
+                    <a href="#" onclick="showSection('voice-testing')"
+                        class="sidebar-item flex items-center px-4 py-3 text-gray-300 hover:text-white">
+                        <i class="fas fa-microphone mr-3"></i>
+                        Voice Testing
+                    </a>
+                </nav>
+            </div>
+            <div class="absolute bottom-6 left-6 right-6">
+                <div class="flex items-center space-x-3 p-3 bg-white bg-opacity-10 rounded-lg">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-white text-xs"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-white text-sm font-medium" id="userDisplayName">User</p>
+                        <button onclick="logout()" class="text-gray-300 text-xs hover:text-white">Sign out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 min-h-screen">
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 id="pageTitle" class="text-2xl font-semibold text-gray-800">Dashboard</h1>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="showCreateCampaignModal()"
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>New Campaign
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Overview -->
+            <div id="dashboard-overview" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm p-6 hover-scale">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-blue-100 rounded-full">
+                                <i class="fas fa-bullhorn text-blue-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Total Campaigns</p>
+                                <p class="text-2xl font-semibold text-gray-800" id="totalCampaigns">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 hover-scale">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-green-100 rounded-full">
+                                <i class="fas fa-play text-green-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Active Campaigns</p>
+                                <p class="text-2xl font-semibold text-gray-800" id="activeCampaigns">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 hover-scale">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-purple-100 rounded-full">
+                                <i class="fas fa-address-book text-purple-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Total Contacts</p>
+                                <p class="text-2xl font-semibold text-gray-800" id="totalContacts">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 hover-scale">
+                        <div class="flex items-center">
+                            <div class="p-3 bg-yellow-100 rounded-full">
+                                <i class="fas fa-phone text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Recent Calls</p>
+                                <p class="text-2xl font-semibold text-gray-800" id="recentCalls">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+                    <div id="recentActivity" class="space-y-3">
+                        <p class="text-gray-500 text-center py-8">No recent activity</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Campaigns Section -->
+            <div id="campaigns" class="p-6 hidden">
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-gray-800">Your Campaigns</h3>
+                            <button onclick="showCreateCampaignModal()"
+                                class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>New Campaign
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="campaignsList" class="space-y-4">
+                            <p class="text-gray-500 text-center py-8">No campaigns yet. Create your first campaign!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacts Section -->
+            <div id="contacts" class="p-6 hidden">
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-gray-800">Your Contacts</h3>
+                            <div class="flex space-x-2">
+                                <button onclick="showAddContactModal()"
+                                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>Add Contact
+                                </button>
+                                <button onclick="showImportContactsModal()"
+                                    class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-upload mr-2"></i>Import CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="contactsList" class="space-y-4">
+                            <p class="text-gray-500 text-center py-8">No contacts yet. Add your first contact!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Call History Section -->
+            <div id="call-history" class="p-6 hidden">
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">Call History</h3>
+                    </div>
+                    <div class="p-6">
+                        <div id="callHistoryList" class="space-y-4">
+                            <p class="text-gray-500 text-center py-8">No calls yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Testing Section -->
+            <div id="voice-testing" class="p-6 hidden">
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">Voice Testing</h3>
+                        <p class="text-gray-600 mt-2">Test different AI voices to find the perfect one for your
+                            campaigns</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Voice</label>
+                                <select id="voiceSelect"
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                                    <option value="maya">Maya (Professional Female)</option>
+                                    <option value="ryan">Ryan (Friendly Male)</option>
+                                    <option value="sophia">Sophia (Warm Female)</option>
+                                    <option value="james">James (Deep Male)</option>
+                                    <option value="maeve">Maeve (Energetic Female)</option>
+                                    <option value="liam">Liam (Calm Male)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Your Phone Number</label>
+                                <input type="tel" id="testPhoneNumber" placeholder="+1234567890"
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <button onclick="testVoice()"
+                                class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors">
+                                <i class="fas fa-phone mr-2"></i>Make Test Call
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Campaign Modal -->
+    <div id="createCampaignModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto m-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">Create New Campaign</h3>
+                    <button onclick="closeModal('createCampaignModal')" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <form onsubmit="handleCreateCampaign(event)" class="p-6 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Name *</label>
+                        <input type="text" id="campaignName" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Agent Name</label>
+                        <input type="text" id="agentName"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Task Description</label>
+                    <textarea id="campaignTask" rows="4"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Describe what the AI agent should do during the call..."></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Voice</label>
+                        <select id="campaignVoice"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                            <option value="maya">Maya (Professional Female)</option>
+                            <option value="ryan">Ryan (Friendly Male)</option>
+                            <option value="sophia">Sophia (Warm Female)</option>
+                            <option value="james">James (Deep Male)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                        <select id="campaignLanguage"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                        <input type="datetime-local" id="campaignStartDate"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                        <input type="datetime-local" id="campaignEndDate"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" onclick="closeModal('createCampaignModal')"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">
+                        Create Campaign
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Contact Modal -->
+    <div id="addContactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md m-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">Add New Contact</h3>
+                    <button onclick="closeModal('addContactModal')" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <form onsubmit="handleAddContact(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <input type="text" id="contactName" required
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                    <input type="tel" id="contactPhone" required placeholder="+1234567890"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="contactEmail"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                    <input type="text" id="contactCompany"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" onclick="closeModal('addContactModal')"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">
+                        Add Contact
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Global variables
+        let currentUser = null;
+        let authToken = null;
+        let currentSection = 'dashboard-overview';
+
+        // API Base URL - adjust this to match your backend
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('Application initializing...');
+            checkAuthStatus();
+        });
+
+        // Authentication Functions
+        function checkAuthStatus() {
+            const token = localStorage.getItem('authToken');
+            const user = localStorage.getItem('currentUser');
+
+            if (token && user) {
+                authToken = token;
+                currentUser = JSON.parse(user);
+                showDashboard();
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        function showLoginScreen() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+
+            if (currentUser) {
+                document.getElementById('userDisplayName').textContent = currentUser.name;
+            }
+
+            loadDashboardData();
+        }
+
+        function showRegisterForm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+
+        function showLoginForm() {
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
+
+        // Handle Login
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            showLoading();
+
+            try {
+                const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+                    email: email,
+                    password: password
+                });
+
+                if (response.data.access_token) {
+                    authToken = response.data.access_token;
+                    currentUser = response.data.user;
+
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+                    hideLoading();
+                    showDashboard();
+                    showNotification('Login successful!', 'success');
+                } else {
+                    throw new Error('No access token received');
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Login error:', error);
+                showNotification(error.response?.data?.detail || 'Login failed. Please try again.', 'error');
+            }
+        }
+
+        // Handle Registration
+        async function handleRegister(event) {
+            event.preventDefault();
+
+            const userData = {
+                name: document.getElementById('registerName').value,
+                email: document.getElementById('registerEmail').value,
+                phone_number: document.getElementById('registerPhone').value,
+                business_name: document.getElementById('registerBusiness').value || null,
+                password: document.getElementById('registerPassword').value
+            };
+
+            showLoading();
+
+            try {
+                const response = await axios.post(`${API_BASE_URL}/api/auth/register`, userData);
+
+                hideLoading();
+                showNotification('Registration successful! Please login.', 'success');
+                showLoginForm();
+
+                // Pre-fill login form
+                document.getElementById('loginEmail').value = userData.email;
+            } catch (error) {
+                hideLoading();
+                console.error('Registration error:', error);
+                showNotification(error.response?.data?.detail || 'Registration failed. Please try again.', 'error');
+            }
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            authToken = null;
+            currentUser = null;
+            showLoginScreen();
+            showNotification('Logged out successfully', 'success');
+        }
+
+        // API Helper Functions
+        function getAuthHeaders() {
+            return {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        async function makeAuthenticatedRequest(url, options = {}) {
+            const config = {
+                ...options,
+                headers: {
+                    ...getAuthHeaders(),
+                    ...options.headers
+                }
+            };
+            return axios(url, config);
+        }
+
+        // Navigation Functions
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = ['dashboard-overview', 'campaigns', 'contacts', 'call-history', 'voice-testing'];
+            sections.forEach(section => {
+                document.getElementById(section).classList.add('hidden');
+            });
+
+            // Show selected section
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            // Update active sidebar item
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.sidebar-item').classList.add('active');
+
+            // Update page title
+            const titles = {
+                'dashboard-overview': 'Dashboard',
+                'campaigns': 'Campaigns',
+                'contacts': 'Contacts',
+                'call-history': 'Call History',
+                'voice-testing': 'Voice Testing'
+            };
+            document.getElementById('pageTitle').textContent = titles[sectionId];
+
+            currentSection = sectionId;
+
+            // Load section-specific data
+            if (sectionId === 'campaigns') {
+                loadCampaigns();
+            } else if (sectionId === 'contacts') {
+                loadContacts();
+            } else if (sectionId === 'call-history') {
+                loadCallHistory();
+            }
+        }
+
+        // Dashboard Data Loading
+        async function loadDashboardData() {
+            try {
+                // Load dashboard stats
+                const statsResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/api/dashboard/stats`);
+                if (statsResponse.data.success) {
+                    const stats = statsResponse.data.stats;
+                    document.getElementById('totalCampaigns').textContent = stats.total_campaigns;
+                    document.getElementById('activeCampaigns').textContent = stats.active_campaigns;
+                    document.getElementById('totalContacts').textContent = stats.total_contacts;
+                    document.getElementById('recentCalls').textContent = stats.recent_calls;
+                }
+
+                // Load recent activity
+                const activityResponse = await makeAuthenticatedRequest(`${API_BASE_URL}/api/dashboard/recent-activity`);
+                if (activityResponse.data.success) {
+                    displayRecentActivity(activityResponse.data.activity);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        function displayRecentActivity(activities) {
+            const container = document.getElementById('recentActivity');
+
+            if (activities.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No recent activity</p>';
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => `
+                <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-${activity.type === 'call' ? 'phone' : 'bullhorn'} text-gray-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-800">${activity.description}</p>
+                        <p class="text-xs text-gray-500">${formatDate(activity.timestamp)}</p>
+                    </div>
+                    <span class="px-2 py-1 text-xs rounded-full ${getStatusColor(activity.status)}">
+                        ${activity.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // Campaign Functions
+        async function loadCampaigns() {
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/campaign-management/`);
+                displayCampaigns(response.data);
+            } catch (error) {
+                console.error('Error loading campaigns:', error);
+                showNotification('Failed to load campaigns', 'error');
+            }
+        }
+
+        function displayCampaigns(campaigns) {
+            const container = document.getElementById('campaignsList');
+
+            if (campaigns.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No campaigns yet. Create your first campaign!</p>';
+                return;
+            }
+
+            container.innerHTML = campaigns.map(campaign => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="text-lg font-medium text-gray-800">${campaign.campaign_name}</h4>
+                            <p class="text-sm text-gray-600 mt-1">${campaign.agent_name || 'No agent assigned'}</p>
+                            <p class="text-xs text-gray-500 mt-2">Created: ${formatDate(campaign.created_at)}</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 text-xs rounded-full ${getStatusColor(campaign.status)}">
+                                ${campaign.status}
+                            </span>
+                            <div class="flex space-x-2">
+                                <button onclick="editCampaign('${campaign.campaign_id}')" class="text-indigo-600 hover:text-indigo-800">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteCampaign('${campaign.campaign_id}')" class="text-red-600 hover:text-red-800">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                ${campaign.status === 'draft' ? `<button onclick="startCampaign('${campaign.campaign_id}')" class="text-green-600 hover:text-green-800">
+                                    <i class="fas fa-play"></i>
+                                </button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ${campaign.task ? `<p class="text-sm text-gray-600 mt-3">${campaign.task}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function handleCreateCampaign(event) {
+            event.preventDefault();
+
+            const campaignData = {
+                campaign_name: document.getElementById('campaignName').value,
+                agent_name: document.getElementById('agentName').value || null,
+                task: document.getElementById('campaignTask').value || null,
+                voice: document.getElementById('campaignVoice').value,
+                language: document.getElementById('campaignLanguage').value,
+                start_date: document.getElementById('campaignStartDate').value || null,
+                end_date: document.getElementById('campaignEndDate').value || null
+            };
+
+            showLoading();
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/campaign-management/`, {
+                    method: 'POST',
+                    data: campaignData
+                });
+
+                hideLoading();
+                closeModal('createCampaignModal');
+                showNotification('Campaign created successfully!', 'success');
+
+                if (currentSection === 'campaigns') {
+                    loadCampaigns();
+                }
+                loadDashboardData();
+            } catch (error) {
+                hideLoading();
+                console.error('Error creating campaign:', error);
+                showNotification(error.response?.data?.detail || 'Failed to create campaign', 'error');
+            }
+        }
+
+        // Contact Functions
+        async function loadContacts() {
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/contacts/`);
+                displayContacts(response.data);
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+                showNotification('Failed to load contacts', 'error');
+            }
+        }
+
+        function displayContacts(contacts) {
+            const container = document.getElementById('contactsList');
+
+            if (contacts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No contacts yet. Add your first contact!</p>';
+                return;
+            }
+
+            container.innerHTML = contacts.map(contact => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="text-lg font-medium text-gray-800">${contact.name}</h4>
+                            <p class="text-sm text-gray-600">${contact.phone_number}</p>
+                            ${contact.email ? `<p class="text-sm text-gray-600">${contact.email}</p>` : ''}
+                            ${contact.company_name ? `<p class="text-xs text-gray-500 mt-1">${contact.company_name}</p>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="editContact(${contact.id})" class="text-indigo-600 hover:text-indigo-800">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteContact(${contact.id})" class="text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function handleAddContact(event) {
+            event.preventDefault();
+
+            const contactData = {
+                name: document.getElementById('contactName').value,
+                phone_number: document.getElementById('contactPhone').value,
+                email: document.getElementById('contactEmail').value || null,
+                company_name: document.getElementById('contactCompany').value || null
+            };
+
+            showLoading();
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/contacts/`, {
+                    method: 'POST',
+                    data: contactData
+                });
+
+                hideLoading();
+                closeModal('addContactModal');
+                showNotification('Contact added successfully!', 'success');
+
+                if (currentSection === 'contacts') {
+                    loadContacts();
+                }
+                loadDashboardData();
+
+                // Clear form
+                document.getElementById('contactName').value = '';
+                document.getElementById('contactPhone').value = '';
+                document.getElementById('contactEmail').value = '';
+                document.getElementById('contactCompany').value = '';
+            } catch (error) {
+                hideLoading();
+                console.error('Error adding contact:', error);
+                showNotification(error.response?.data?.detail || 'Failed to add contact', 'error');
+            }
+        }
+
+        // Call History Functions
+        async function loadCallHistory() {
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/calls`);
+                displayCallHistory(response.data);
+            } catch (error) {
+                console.error('Error loading call history:', error);
+                showNotification('Failed to load call history', 'error');
+            }
+        }
+
+        function displayCallHistory(calls) {
+            const container = document.getElementById('callHistoryList');
+
+            if (calls.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No calls yet.</p>';
+                return;
+            }
+
+            container.innerHTML = calls.map(call => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h4 class="text-lg font-medium text-gray-800">${call.to_phone}</h4>
+                            <p class="text-sm text-gray-600">Call ID: ${call.call_id}</p>
+                            <p class="text-xs text-gray-500 mt-1">${formatDate(call.created_at)}</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 text-xs rounded-full ${call.completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                ${call.completed ? 'Completed' : 'In Progress'}
+                            </span>
+                        </div>
+                    </div>
+                    ${call.summary ? `<p class="text-sm text-gray-600 mt-3">${call.summary}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Voice Testing Functions
+        async function testVoice() {
+            const voice = document.getElementById('voiceSelect').value;
+            const phoneNumber = document.getElementById('testPhoneNumber').value;
+
+            if (!phoneNumber) {
+                showNotification('Please enter your phone number', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/features/test-voice`, {
+                    method: 'POST',
+                    data: {
+                        voice: voice,
+                        user_phone_number: phoneNumber
+                    }
+                });
+
+                hideLoading();
+                showNotification('Test call initiated! You should receive a call shortly.', 'success');
+            } catch (error) {
+                hideLoading();
+                console.error('Error testing voice:', error);
+                showNotification(error.response?.data?.detail || 'Failed to initiate test call', 'error');
+            }
+        }
+
+        // Modal Functions
+        function showCreateCampaignModal() {
+            document.getElementById('createCampaignModal').classList.remove('hidden');
+        }
+
+        function showAddContactModal() {
+            document.getElementById('addContactModal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Utility Functions
+        function showLoading() {
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg animate-fadeIn ${type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                    'bg-blue-500 text-white'
+                }`;
+            notification.textContent = message;
+
+            document.body.appendChild(notification);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString();
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'active': 'bg-green-100 text-green-800',
+                'draft': 'bg-gray-100 text-gray-800',
+                'paused': 'bg-yellow-100 text-yellow-800',
+                'completed': 'bg-blue-100 text-blue-800',
+                'cancelled': 'bg-red-100 text-red-800',
+                'in_progress': 'bg-yellow-100 text-yellow-800',
+                'success': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Additional Functions (stubs for future implementation)
+        async function editCampaign(campaignId) {
+            showNotification('Edit campaign feature coming soon!', 'info');
+        }
+
+        async function deleteCampaign(campaignId) {
+            if (confirm('Are you sure you want to delete this campaign?')) {
+                try {
+                    await makeAuthenticatedRequest(`${API_BASE_URL}/api/campaign-management/${campaignId}`, {
+                        method: 'DELETE'
+                    });
+                    showNotification('Campaign deleted successfully!', 'success');
+                    loadCampaigns();
+                    loadDashboardData();
+                } catch (error) {
+                    showNotification('Failed to delete campaign', 'error');
+                }
+            }
+        }
+
+        async function startCampaign(campaignId) {
+            showNotification('Start campaign feature coming soon!', 'info');
+        }
+
+        async function editContact(contactId) {
+            showNotification('Edit contact feature coming soon!', 'info');
+        }
+
+        async function deleteContact(contactId) {
+            if (confirm('Are you sure you want to delete this contact?')) {
+                try {
+                    await makeAuthenticatedRequest(`${API_BASE_URL}/api/contacts/${contactId}`, {
+                        method: 'DELETE'
+                    });
+                    showNotification('Contact deleted successfully!', 'success');
+                    loadContacts();
+                    loadDashboardData();
+                } catch (error) {
+                    showNotification('Failed to delete contact', 'error');
+                }
+            }
+        }
+
+        function showImportContactsModal() {
+            showNotification('CSV import feature coming soon!', 'info');
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function (event) {
+            const modals = ['createCampaignModal', 'addContactModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    closeModal(modalId);
+                }
+            });
+        });
+
+        // Handle escape key to close modals
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                const modals = ['createCampaignModal', 'addContactModal'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (!modal.classList.contains('hidden')) {
+                        closeModal(modalId);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

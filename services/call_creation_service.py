@@ -53,13 +53,13 @@ async def start_campaign_calls(request: BatchCallRequest, db: Session):
             start_time_utc = campaign.start_date.astimezone(timezone.utc)
             
         # Check if the scheduled time is at least 30 minutes in the future
-        min_start_time = now_utc + timedelta(minutes=5)
+        min_start_time = now_utc + timedelta(minutes=2)
         if start_time_utc < min_start_time:
             logger.warning(f"⚠️ Scheduled start time {start_time_utc} is less than 30 minutes from now. Using minimum required time.")
             start_time_utc = min_start_time
     else:
         # Default to 30 minutes from now (minimum required by Bland AI)
-        start_time_utc = now_utc + timedelta(minutes=5)
+        start_time_utc = now_utc + timedelta(minutes=2)
 
     logger.info(f"📅 Batch scheduled to start at: {start_time_utc.isoformat()}")
 
