@@ -11,7 +11,7 @@ except KeyError:
     # or having a fallback mechanism.
     
 # Create the Generative Model instance
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-2.0-flash')
 
 def get_sentiment_from_transcript(transcript: str) -> str:
     """
