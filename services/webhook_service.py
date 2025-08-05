@@ -25,15 +25,15 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
         
         # Try to get campaign_id from various possible locations
         campaign_id_str = None
-        if 'campaign_id' in metadata:
-            campaign_id_str = metadata['campaign_id']
-        elif 'campaign_id' in data:
-            campaign_id_str = data['campaign_id']
+        if 'campaign_batch_id' in metadata:
+            campaign_id_str = metadata['campaign_batch_id']
+        elif 'campaign_batch_id' in data:
+            campaign_id_str = data['campaign_batch_id']
         
-        campaign_id = None
+        campaign_batch_id = None
         if campaign_id_str:
             try:
-                campaign_id = uuid.UUID(campaign_id_str)
+                campaign_batch_id = uuid.UUID(campaign_id_str)
             except ValueError:
                 logger.warning(f"⚠️ Invalid campaign_id format: {campaign_id_str}")
         
@@ -47,7 +47,7 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
         # Extract call details
         call_data = {
             "call_id": call_id,
-            "campaign_id": campaign_id,
+            "campaign_batch_id": campaign_batch_id,
             "batch_id": batch_id,
             "to_phone": data.get("to") or data.get("phone_number"),
             "from_phone": data.get("from"),
@@ -70,7 +70,7 @@ async def process_webhook(request: Request, db: Session, background_tasks: Backg
                 "status": "success", 
                 "message": "Call processed successfully", 
                 "call_id": call_id,
-                "campaign_id": str(campaign_id) if campaign_id else None
+                "campaign_batch_id": str(campaign_batch_id) if campaign_batch_id else None
             }
             
         except Exception as e:
