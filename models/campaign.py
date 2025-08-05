@@ -20,7 +20,7 @@ class Campaign(Base):
     agent_role = Column(String, nullable=True)
     language = Column(String, default="en", nullable=True)
     voicemail_message = Column(Text, nullable=True)
-    campaign_group_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    campaign_group_id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
     version = Column(Integer, nullable=False, default=1)
     campaign_name = Column(String, nullable=False)
     agent_name = Column(String, nullable=True)

@@ -10,6 +10,7 @@ class Call(Base):
     
     call_id = Column(String(255), primary_key=True, nullable=False)
     campaign_id = Column(UUID(as_uuid=True), ForeignKey('campaigns.campaign_id', ondelete='CASCADE'), nullable=True, index=True)
+    campaign_group_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     batch_id = Column(String(255), nullable=True, index=True)
     emotion = Column(String(20), nullable=True)
     from_phone = Column(String(50), nullable=True)
@@ -32,10 +33,10 @@ class Call(Base):
     
     # Indexes for performance
     __table_args__ = (
-        Index('idx_calls_campaign_created', 'campaign_id', 'created_at'),
+        Index('idx_calls_campaign_created', 'campaign_id', 'created_at'),  # use campaign_id instead
         Index('idx_calls_batch_created', 'batch_id', 'created_at'),
         Index('idx_calls_phone_created', 'to_phone', 'created_at'),
     )
     
     def __repr__(self):
-        return f"<Call(id={self.call_id}, campaign_id={self.campaign_id}, completed={self.completed})>"
+        return f"<Call(id={self.call_id}, campaign_group_id={self.campaign_group_id}, completed={self.completed})>"
